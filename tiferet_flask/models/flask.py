@@ -65,3 +65,12 @@ class FlaskBlueprint(Entity):
             description='The URL prefix for all routes in this blueprint.'
         )
     )
+
+    # * attribute: routes
+    routes = ListType(
+        ModelType(FlaskRoute),
+        default=[],
+        metadata=dict(
+            description='A list of routes associated with this blueprint.'
+        )
+    )
