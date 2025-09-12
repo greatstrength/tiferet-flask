@@ -54,6 +54,7 @@ class FlaskRouteYamlData(DataObject, FlaskRoute):
         :rtype: FlaskRouteContract
         '''
 
+        # Map the data object to a model instance.
         return super().map(
             FlaskRoute,
             id=id
