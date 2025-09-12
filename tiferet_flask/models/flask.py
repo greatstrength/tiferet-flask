@@ -1,13 +1,17 @@
 # *** imports
 
 # ** infra
-from tiferet.models import *
-
+from tiferet.models import (
+    ModelObject,
+    StringType,
+    ListType,
+    ModelType
+)
 
 # *** models
 
 # ** model: flask_route
-class FlaskRoute(Entity):
+class FlaskRoute(ModelObject):
     '''
     A Flask route model.
     '''
@@ -38,7 +42,7 @@ class FlaskRoute(Entity):
     )
 
 # ** model: flask_blueprint
-class FlaskBlueprint(Entity):
+class FlaskBlueprint(ModelObject):
     '''
     A Flask blueprint model.
     '''
