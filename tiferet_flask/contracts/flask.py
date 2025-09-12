@@ -4,7 +4,10 @@
 from typing import List
 
 # ** infra
-from tiferet.contracts import *
+from tiferet.contracts import (
+    ModelContract,
+    Repository
+)
 
 # *** contracts
 
@@ -13,36 +16,17 @@ class FlaskRouteContract(ModelContract):
     '''
     A contract for Flask route models.
     '''
-
-    # * attribute
-    id: str
-    
-    # * attribute
-    rule: str
-
-    # * attribute
-    methods: List[str]
+    pass
 
 # ** contract: flask_blueprint_contract
 class FlaskBlueprintContract(ModelContract):
     '''
     A contract for Flask blueprint models.
     '''
-
-    # * attribute
-    id: str
-
-    # * attribute
-    name: str
-
-    # * attribute
-    url_prefix: str
-
-    # * attribute
-    routes: List[FlaskRouteContract]
+    pass
 
 # ** contract: flask_api_repository
-class FlaskAPIRepository(Repository):
+class FlaskApiRepository(Repository):
     '''
     A repository contract for managing Flask API entities.
     '''
