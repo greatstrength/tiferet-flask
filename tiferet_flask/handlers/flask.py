@@ -6,14 +6,13 @@ from typing import List
 # ** app
 from ..contracts.flask import (
     FlaskBlueprintContract,
-    FlaskApiRepository,
-    FlaskApiService
+    FlaskApiRepository
 )
 
 # *** handlers
 
 # ** handler: flask_api_handler
-class FlaskApiHandler(FlaskApiService):
+class FlaskApiHandler(object):
     '''
     A handler for managing Flask API entities.
     '''
