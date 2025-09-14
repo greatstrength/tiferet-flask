@@ -6,7 +6,10 @@ from unittest import mock
 
 # ** app
 from ....data.flask import FlaskBlueprintYamlData
-from ....models.flask import FlaskBlueprint
+from ....models.flask import (
+    FlaskBlueprint,
+    FlaskRoute
+)
 from ..flask import *
 
 # *** fixtures
@@ -25,10 +28,14 @@ def yaml_data():
                     'routes': {
                         'sample_route': {
                             'rule': '/sample',
-                            'methods': ['GET', 'POST']
+                            'methods': ['GET', 'POST'],
+                            'status_code': 269
                         }
                     }
                 }
+            },
+            'errors': {
+                'TEST_ERROR': 420
             }
         }
     }
@@ -102,3 +109,40 @@ def test_flask_yaml_proxy_get_blueprints(flask_yaml_proxy):
     assert blueprints[0].name == 'Sample Blueprint'
     assert blueprints[0].routes[0].rule == '/sample'
     assert blueprints[0].routes[0].methods == ['GET', 'POST']
+    assert blueprints[0].routes[0].status_code == 269
+
+# ** test: flask_yaml_proxy_get_route
+def test_flask_yaml_proxy_get_route(flask_yaml_proxy):
+    '''
+    Test the get_route method of FlaskYamlProxy.
+    '''
+    # Call the get_route method to retrieve a specific route.
+    route = flask_yaml_proxy.get_route(route_id='sample_route', blueprint_id='sample_blueprint')
+
+    # Assert that the returned route is as expected.
+    assert isinstance(route, FlaskRoute)
+    assert route.id == 'sample_route'
+    assert route.rule == '/sample'
+    assert route.methods == ['GET', 'POST']
+    assert route.status_code == 269
+
+# ** test: flask_yaml_proxy_get_status_code
+def test_flask_yaml_proxy_get_status_code(flask_yaml_proxy, yaml_data):
+    '''
+    Test the get_status_code method of FlaskYamlProxy.
+    '''
+
+    # Create a FlaskYamlProxy instance with mocked YAML loading.
+    flask_yaml_proxy.load_yaml = mock.Mock(return_value=yaml_data.get('flask', {}).get('errors', {}))
+    
+    # Call the get_status_code method to retrieve a status code for a known error.
+    status_code = flask_yaml_proxy.get_status_code('TEST_ERROR')
+
+    # Assert that the returned status code is as expected.
+    assert status_code == 420
+
+    # Call the get_status_code method to retrieve a status code for an unknown error.
+    default_status_code = flask_yaml_proxy.get_status_code('UNKNOWN_ERROR')
+
+    # Assert that the default status code is returned for unknown errors.
+    assert default_status_code == 500

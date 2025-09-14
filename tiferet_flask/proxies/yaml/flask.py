@@ -125,8 +125,10 @@ class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
         :rtype: int
         '''
 
-        # Load and return the error code from the errors section of the YAML file.
-        return self.load_yaml(
+        # Load the error code from the errors section of the YAML file.
+        data = self.load_yaml(
             start_node=lambda d: d.get('flask').get('errors', {}),
-            create_data=lambda data: data.get(error_code, 500)
         )
+
+        # Return the status code if found, otherwise default to 500.
+        return data.get(error_code, 500)
