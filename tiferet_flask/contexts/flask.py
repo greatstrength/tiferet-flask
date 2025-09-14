@@ -143,7 +143,8 @@ class FlaskApiContext(AppInterfaceContext):
             algorithms=[self.jwt_token_secret_algo]
         ))
 
-    def parse_request(self, headers: Dict[str, str] = {}, data: Dict[str, Any] = {}) -> RequestContext:
+    # * method: parse_request
+    def parse_request(self, headers: Dict[str, str] = {}, data: Dict[str, Any] = {}, feature_id: str = None) -> RequestContext:
         '''
         Parse the request context from the Flask request object.
 
@@ -151,6 +152,8 @@ class FlaskApiContext(AppInterfaceContext):
         :type headers: dict
         :param data: The request data.
         :type data: dict
+        :param feature_id: The feature identifier if provided.
+        :type feature_id: str
         :return: The request context.
         :rtype: RequestContext
         '''
@@ -162,9 +165,11 @@ class FlaskApiContext(AppInterfaceContext):
         # Assemble and return the request context.
         return super().parse_request(
             headers=headers,
-            data=data
+            data=data,
+            feature_id=feature_id
         )
     
+    # * method: handle_response
     def handle_response(self, request: RequestContext) -> Any:
         '''
         Handle the response from the request context.
@@ -176,7 +181,7 @@ class FlaskApiContext(AppInterfaceContext):
         '''
 
         # Handle the response from the request context.
-        response, status_code = super().handle_response(request)
+        response = super().handle_response(request)
 
         # If the response is None, return an empty response.
         if response is None:
@@ -190,8 +195,11 @@ class FlaskApiContext(AppInterfaceContext):
         if isinstance(response, list) and all(isinstance(item, ModelObject) for item in response):
             return [item.to_primitive() for item in response]
         
+        # Retrieve the route by the request feature id.
+        route = self.flask_api_handler.get_route(request.feature_id)
+
         # Return the result as JSON with the specified status code.
-        return response, status_code
+        return response, route.status_code
 
     # * method: build_blueprint
     def build_blueprint(self, flask_blueprint: FlaskBlueprint, view_func: callable, **kwargs) -> Blueprint:
@@ -216,14 +224,13 @@ class FlaskApiContext(AppInterfaceContext):
         )
 
         # Add the url rules.
-        [
+        for route in blueprint.routes:
             blueprint.add_url_rule(
                 route.rule, 
                 route.id, 
                 methods=route.methods, 
                 view_func=lambda: view_func(self, **kwargs),
-            ) for route in flask_blueprint.routes
-        ]
+            )
             
         # Return the created blueprint.
         return blueprint
