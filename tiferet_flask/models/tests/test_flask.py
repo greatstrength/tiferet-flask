@@ -22,7 +22,8 @@ def flask_route() -> FlaskRoute:
         FlaskRoute,
         id='sample_route',
         rule='/sample',
-        methods=['GET', 'POST']
+        methods=['GET', 'POST'],
+        status_code=200
     )
 
 # ** fixture: flask_blueprint
@@ -57,6 +58,7 @@ def test_flask_route_creation(flask_route: FlaskRoute):
     assert flask_route.id == 'sample_route'
     assert flask_route.rule == '/sample'
     assert flask_route.methods == ['GET', 'POST']
+    assert flask_route.status_code == 200
 
 # ** test: flask_blueprint_creation
 def test_flask_blueprint_creation(flask_blueprint: FlaskBlueprint, flask_route: FlaskRoute):
