@@ -66,3 +66,19 @@ class FlaskApiHandler(object):
             route_id=route_id,
             blueprint_id=blueprint_id,
         )
+    
+    # * method: get_status_code
+    def get_status_code(self, error_code: str) -> int:
+        '''
+        Retrieve the HTTP status code for a given error code using the repository.
+
+        :param error_code: The error code identifier.
+        :type error_code: str
+        :return: The corresponding HTTP status code.
+        :rtype: int
+        '''
+
+        # Delegate the call to the repository.
+        return self.flask_repo.get_status_code(
+            error_code=error_code
+        )
