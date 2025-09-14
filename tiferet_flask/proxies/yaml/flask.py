@@ -9,7 +9,8 @@ from tiferet.proxies.yaml import YamlConfigurationProxy, TiferetError, raise_err
 # ** app
 from ...data.flask import (
     FlaskBlueprintYamlData,
-    FlaskBlueprintContract
+    FlaskBlueprintContract,
+    FlaskRouteContract
 )
 from ...contracts.flask import (
     FlaskApiRepository
@@ -77,9 +78,38 @@ class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
             create_data=lambda data: [FlaskBlueprintYamlData.from_data(
                 id=id,
                 **blueprint
-            ) for blueprint in data.items()],
+            ) for id, blueprint in data.items()],
             start_node=lambda d: d.get('flask', {}).get('blueprints', {})
         )
 
         # Map the loaded data to FlaskBlueprintContract instances.
         return [blueprint.map() for blueprint in data]
+    
+    # * method: get_route
+    def get_route(self, route_id: str, blueprint_id: str = None) -> FlaskRouteContract:
+        '''
+        Retrieve a specific Flask route by its blueprint and route IDs from the YAML configuration.
+
+        :param route_id: The route identifier.
+        :type route_id: str
+        :param blueprint_id: The blueprint identifier (optional).
+        :type blueprint_id: str
+        :return: The corresponding FlaskRouteContract instance.
+        :rtype: FlaskRouteContract
+        '''
+
+        # Load the blueprints section from the YAML file.
+        blueprints = self.get_blueprints()
+
+        # Search for the specified blueprint.
+        for blueprint in blueprints:
+            if blueprint_id and blueprint.id != blueprint_id:
+                continue
+            
+            # Search for the route within the blueprint.
+            for route in blueprint.routes:
+                if route.id == route_id:
+                    return route
+        
+        # If not found, return None.
+        return None
