@@ -4,6 +4,7 @@
 from tiferet.models import (
     ModelObject,
     StringType,
+    IntegerType,
     ListType,
     ModelType
 )
@@ -38,6 +39,14 @@ class FlaskRoute(ModelObject):
         required=True,
         metadata=dict(
             description='A list of HTTP methods this rule should be limited to.'
+        )
+    )
+
+    # * attribute: status_code
+    status_code = IntegerType(
+        default=200,
+        metadata=dict(
+            description='The default HTTP status code for the route response.'
         )
     )
 
