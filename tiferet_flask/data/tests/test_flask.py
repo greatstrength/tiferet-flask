@@ -24,7 +24,6 @@ def flask_blueprint_yaml_data_raw() -> dict:
 
     return {
         'sample_blueprint': {
-            'name': 'Sample Blueprint',
             'routes': {
                 'sample_route': {
                     'rule': '/sample',
@@ -68,7 +67,6 @@ def test_flask_blueprint_yaml_data_creation(flask_blueprint_yaml_data: List[Flas
 
     blueprint = flask_blueprint_yaml_data[0]
     assert blueprint.id == 'sample_blueprint'
-    assert blueprint.name == 'Sample Blueprint'
     assert len(blueprint.routes) == 1
 
     route = blueprint.routes['sample_route']
@@ -90,7 +88,6 @@ def test_flask_blueprint_yaml_data_map(flask_blueprint_yaml_data: List[FlaskBlue
 
     model = models[0]
     assert model.id == 'sample_blueprint'
-    assert model.name == 'Sample Blueprint'
     assert len(model.routes) == 1
 
     route = model.routes[0]
