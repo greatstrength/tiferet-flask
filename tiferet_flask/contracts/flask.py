@@ -67,3 +67,16 @@ class FlaskApiRepository(Repository):
         :rtype: FlaskRouteContract
         '''
         raise NotImplementedError('get_route method not implemented.')
+    
+    # * method: get_status_code
+    @abstractmethod
+    def get_status_code(self, error_code: str) -> int:
+        '''
+        Retrieve the HTTP status code for a given error code.
+
+        :param error_code: The error code.
+        :type error_code: str
+        :return: The corresponding HTTP status code.
+        :rtype: int
+        '''
+        raise NotImplementedError('get_status_code method not implemented.')
