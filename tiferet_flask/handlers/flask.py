@@ -3,6 +3,9 @@
 # ** core
 from typing import List
 
+# ** infra
+from tiferet.commands import raise_error
+
 # ** app
 from ..contracts.flask import (
     FlaskBlueprintContract,
@@ -62,10 +65,21 @@ class FlaskApiHandler(object):
             route_id = endpoint
 
         # Delegate the call to the repository.
-        return self.flask_repo.get_route(
+        route = self.flask_repo.get_route(
             route_id=route_id,
             blueprint_id=blueprint_id,
         )
+
+        # Raise an error if the route is not found.
+        if route is None:
+            raise_error.execute(
+                'FLASK_ROUTE_NOT_FOUND',
+                f'Flask route not found for endpoint: {endpoint}',
+                endpoint
+            )
+
+        # Return the found route.
+        return route
     
     # * method: get_status_code
     def get_status_code(self, error_code: str) -> int:
