@@ -113,3 +113,20 @@ class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
         
         # If not found, return None.
         return None
+    
+    # * method: get_status_code
+    def get_status_code(self, error_code: str) -> int:
+        '''
+        Retrieve the HTTP status code for a given error code from the YAML configuration.
+
+        :param error_code: The error code identifier.
+        :type error_code: str
+        :return: The corresponding HTTP status code.
+        :rtype: int
+        '''
+
+        # Load and return the error code from the errors section of the YAML file.
+        return self.load_yaml(
+            start_node=lambda d: d.get('flask').get('errors', {}),
+            create_data=lambda data: data.get(error_code, 500)
+        )
