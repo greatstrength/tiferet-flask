@@ -40,7 +40,6 @@ def flask_blueprint(flask_route: FlaskRoute) -> FlaskBlueprint:
     return ModelObject.new(
         FlaskBlueprint,
         id='sample_blueprint',
-        name='Sample Blueprint',
         routes=[flask_route]
     )
 
@@ -71,6 +70,5 @@ def test_flask_blueprint_creation(flask_blueprint: FlaskBlueprint, flask_route: 
     '''
     
     assert flask_blueprint.id == 'sample_blueprint'
-    assert flask_blueprint.name == 'Sample Blueprint'
     assert len(flask_blueprint.routes) == 1
     assert flask_blueprint.routes[0] == flask_route

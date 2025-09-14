@@ -55,14 +55,6 @@ class FlaskBlueprint(ModelObject):
         )
     )
 
-    # * attribute: name
-    name = StringType(
-        required=True,
-        metadata=dict(
-            description='The name of the blueprint.'
-        )
-    )
-
     # * attribute: url_prefix
     url_prefix = StringType(
         metadata=dict(
