@@ -9,7 +9,8 @@ import jwt
 from flask import Flask, Blueprint
 from tiferet.contexts.app import (
     AppInterfaceContext, 
-    RequestContext
+    RequestContext,
+    TiferetError
 )
 from tiferet.contexts.request import RequestContext
 from tiferet.contexts.error import ErrorContext
@@ -169,6 +170,25 @@ class FlaskApiContext(AppInterfaceContext):
             feature_id=feature_id
         )
     
+    # * method: handle_error
+    def handle_error(self, error: Exception) -> Any:
+        '''
+        Handle the error and return the response.
+
+        :param error: The error to handle.
+        :type error: Exception
+        :return: The error response.
+        :rtype: Any
+        '''
+
+        # Handle the error and get the response from the parent context.
+        if not isinstance(error, TiferetError):
+            return super().handle_error(error), 500
+
+        # Get the status code by the error code on the exception.
+        status_code = self.flask_api_handler.get_status_code(error.error_code)
+        return super().handle_error(error), status_code
+
     # * method: handle_response
     def handle_response(self, request: RequestContext) -> Any:
         '''
@@ -224,7 +244,7 @@ class FlaskApiContext(AppInterfaceContext):
         )
 
         # Add the url rules.
-        for route in blueprint.routes:
+        for route in flask_blueprint.routes:
             blueprint.add_url_rule(
                 route.rule, 
                 route.id, 
