@@ -184,15 +184,15 @@ def view_func(context: FlaskApiContext, **kwargs):
     # Get the Flask request context.
     from flask import request, jsonify
 
-    # Format the request data from the json payload (if applicable) and the query parameters
+    # Format the request data from the json payload (if applicable) and the query parameters.
     data = dict(request.json) if request.is_json else {}
     data.update(dict(request.args))
     data.update(dict(request.view_args))
 
-    # Format header data from the request headers and authorization by type (if applicable)
+    # Format header data from the request headers.
     headers = dict(request.headers)
 
-    # Execute the feature from the request endpoint
+    # Execute the feature from the request endpoint.
     response, status_code = context.run(
         feature_id=request.endpoint, 
         headers=headers, 
