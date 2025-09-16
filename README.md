@@ -4,7 +4,7 @@
 
 Tiferet Flask is an extension of the Tiferet Python framework, enabling developers to build robust Flask-based APIs using Domain-Driven Design (DDD) principles. Inspired by the concept of beauty in harmony reflected in form, Tiferet Flask integrates Tiferet's command and configuration-driven approach with Flask's routing and request handling to create scalable, modular web services. It transforms complex business logic into clear, extensible API models that resonate with precision and elegance.
 
-This tutorial guides you through building a simple calculator API, reusing Tiferet's commands and configurations while adding Flask-specific interfaces and endpoints. For foundational Tiferet concepts, refer to the Tiferet documentation.
+This tutorial guides you through building a simple calculator API, reusing Tiferet's commands and configurations while adding Flask-specific interfaces and endpoints. For foundational Tiferet concepts, refer to the [Tiferet documentation](https://github.com/greatstrength/tiferet).
 
 ## Getting Started with Tiferet Flask
 
