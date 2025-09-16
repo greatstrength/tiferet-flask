@@ -50,7 +50,7 @@ class FlaskApiHandler(object):
         '''
         Retrieve a specific Flask route by its blueprint and route IDs.
 
-        :param endpoint: The endpoint in the format 'blueprint_id.route_id'.
+        :param endpoint: The endpoint in the format 'blueprint_name.route_id'.
         :type endpoint: str
         :return: The corresponding FlaskRouteContract instance.
         :rtype: FlaskRouteContract
@@ -58,16 +58,16 @@ class FlaskApiHandler(object):
 
         # Split the endpoint into blueprint and route IDs.
         # If no blueprint is specified, assume the route is at the root level.
-        blueprint_id = None
+        blueprint_name = None
         try:
-            blueprint_id, route_id = endpoint.split('.')
+            blueprint_name, route_id = endpoint.split('.')
         except ValueError:
             route_id = endpoint
 
         # Delegate the call to the repository.
         route = self.flask_repo.get_route(
             route_id=route_id,
-            blueprint_id=blueprint_id,
+            blueprint_name=blueprint_name,
         )
 
         # Raise an error if the route is not found.

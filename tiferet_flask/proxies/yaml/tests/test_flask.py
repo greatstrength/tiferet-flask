@@ -24,7 +24,6 @@ def yaml_data():
         'flask': {
             'blueprints': {
                 'sample_blueprint': {
-                    'name': 'Sample Blueprint',
                     'routes': {
                         'sample_route': {
                             'rule': '/sample',
@@ -51,8 +50,8 @@ def flask_yaml_proxy(yaml_data):
 
     # Mock the load_yaml method to return the sample YAML data.
     proxy.load_yaml = mock.Mock(return_value=[FlaskBlueprintYamlData.from_data(
-        id=id, **blueprint
-    ) for id, blueprint in yaml_data.get('flask', {}).get('blueprints', {}).items(
+        name=name, **blueprint
+    ) for name, blueprint in yaml_data.get('flask', {}).get('blueprints', {}).items(
     )])
 
     # Return the proxy instance for use in tests.
@@ -105,8 +104,7 @@ def test_flask_yaml_proxy_get_blueprints(flask_yaml_proxy):
     assert isinstance(blueprints, List)
     assert len(blueprints) == 1
     assert isinstance(blueprints[0], FlaskBlueprint)
-    assert blueprints[0].id == 'sample_blueprint'
-    assert blueprints[0].name == 'Sample Blueprint'
+    assert blueprints[0].name == 'sample_blueprint'
     assert blueprints[0].routes[0].rule == '/sample'
     assert blueprints[0].routes[0].methods == ['GET', 'POST']
     assert blueprints[0].routes[0].status_code == 269

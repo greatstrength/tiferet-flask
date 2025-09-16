@@ -70,13 +70,13 @@ class FlaskBlueprintYamlData(DataObject, FlaskBlueprint):
         serialize_when_none = False
         roles = {
             'to_model': DataObject.deny('routes'),
-            'to_data': DataObject.deny('id')
+            'to_data': DataObject.deny('name')
         }
 
-    # * attribute: id
-    id = StringType(
+    # * attribute: name
+    name = StringType(
         metadata=dict(
-            description='The unique identifier of the blueprint.'
+            description='The name of the blueprint.'
         )
     )
 

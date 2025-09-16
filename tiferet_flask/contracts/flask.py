@@ -30,8 +30,8 @@ class FlaskBlueprintContract(ModelContract):
     A contract for Flask blueprint models.
     '''
     
-    # * attribute: id
-    id: str
+    # * attribute: name
+    name: str
 
     # * attribute: routes
     routes: List[FlaskRouteContract]
@@ -55,14 +55,14 @@ class FlaskApiRepository(Repository):
     
     # * method: get_route
     @abstractmethod
-    def get_route(self, route_id: str, blueprint_id: str = None) -> FlaskRouteContract:
+    def get_route(self, route_id: str, blueprint_name: str = None) -> FlaskRouteContract:
         '''
         Retrieve a specific Flask route by its blueprint and route IDs.
 
         :param route_id: The ID of the route within the blueprint.
         :type route_id: str
-        :param blueprint_id: The ID of the blueprint (optional).
-        :type blueprint_id: str
+        :param blueprint_name: The name of the blueprint (optional).
+        :type blueprint_name: str
         :return: The corresponding FlaskRouteContract instance.
         :rtype: FlaskRouteContract
         '''

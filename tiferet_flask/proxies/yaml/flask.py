@@ -76,9 +76,9 @@ class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
         # Load the blueprints section from the YAML file.
         data = self.load_yaml(
             create_data=lambda data: [FlaskBlueprintYamlData.from_data(
-                id=id,
+                name=name,
                 **blueprint
-            ) for id, blueprint in data.items()],
+            ) for name, blueprint in data.items()],
             start_node=lambda d: d.get('flask', {}).get('blueprints', {})
         )
 
@@ -86,14 +86,14 @@ class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
         return [blueprint.map() for blueprint in data]
     
     # * method: get_route
-    def get_route(self, route_id: str, blueprint_id: str = None) -> FlaskRouteContract:
+    def get_route(self, route_id: str, blueprint_name: str = None) -> FlaskRouteContract:
         '''
         Retrieve a specific Flask route by its blueprint and route IDs from the YAML configuration.
 
         :param route_id: The route identifier.
         :type route_id: str
-        :param blueprint_id: The blueprint identifier (optional).
-        :type blueprint_id: str
+        :param blueprint_name: The name of the blueprint (optional).
+        :type blueprint_name: str
         :return: The corresponding FlaskRouteContract instance.
         :rtype: FlaskRouteContract
         '''
@@ -103,7 +103,7 @@ class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
 
         # Search for the specified blueprint.
         for blueprint in blueprints:
-            if blueprint_id and blueprint.id != blueprint_id:
+            if blueprint_name and blueprint.name != blueprint_name:
                 continue
             
             # Search for the route within the blueprint.

@@ -47,9 +47,9 @@ def flask_blueprint_yaml_data(flask_blueprint_yaml_data_raw: dict) -> List[Flask
 
     return [
         FlaskBlueprintYamlData.from_data(
-            id=id,
+            name=name,
             **blueprint
-        ) for id, blueprint in flask_blueprint_yaml_data_raw.items()
+        ) for name, blueprint in flask_blueprint_yaml_data_raw.items()
     ]
 
 # *** tests
@@ -66,7 +66,7 @@ def test_flask_blueprint_yaml_data_creation(flask_blueprint_yaml_data: List[Flas
     assert len(flask_blueprint_yaml_data) == 1
 
     blueprint = flask_blueprint_yaml_data[0]
-    assert blueprint.id == 'sample_blueprint'
+    assert blueprint.name == 'sample_blueprint'
     assert len(blueprint.routes) == 1
 
     route = blueprint.routes['sample_route']
@@ -87,7 +87,7 @@ def test_flask_blueprint_yaml_data_map(flask_blueprint_yaml_data: List[FlaskBlue
     assert len(models) == 1
 
     model = models[0]
-    assert model.id == 'sample_blueprint'
+    assert model.name == 'sample_blueprint'
     assert len(model.routes) == 1
 
     route = model.routes[0]

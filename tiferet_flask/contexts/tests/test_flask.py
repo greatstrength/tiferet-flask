@@ -24,7 +24,7 @@ def flask_blueprint() -> FlaskBlueprint:
 
     return ModelObject.new(
         FlaskBlueprint,
-        id='sample_blueprint',
+        name='sample_blueprint',
         routes=[
             ModelObject.new(
                 FlaskRoute,

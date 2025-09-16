@@ -1,7 +1,7 @@
 # *** imports
 
 # ** core
-from typing import Any
+from typing import Any, Callable
 
 # ** infra
 from flask import Flask, Blueprint
@@ -127,14 +127,14 @@ class FlaskApiContext(AppInterfaceContext):
         return response, route.status_code
 
     # * method: build_blueprint
-    def build_blueprint(self, flask_blueprint: FlaskBlueprint, view_func: callable, **kwargs) -> Blueprint:
+    def build_blueprint(self, flask_blueprint: FlaskBlueprint, view_func: Callable, **kwargs) -> Blueprint:
         '''
         Assembles a Flask blueprint from the given FlaskBlueprint model.
 
         :param flask_blueprint: The FlaskBlueprint model.
         :type flask_blueprint: FlaskBlueprint
         :param view_func: The view function to handle requests.
-        :type view_func: callable
+        :type view_func: Callable
         :param kwargs: Additional keyword arguments.
         :type kwargs: dict
         :return: The created Flask blueprint.
@@ -143,7 +143,7 @@ class FlaskApiContext(AppInterfaceContext):
 
         # Create the blueprint.
         blueprint = Blueprint(
-            flask_blueprint.id, 
+            flask_blueprint.name, 
             __name__, 
             url_prefix=flask_blueprint.url_prefix
         )
@@ -161,12 +161,12 @@ class FlaskApiContext(AppInterfaceContext):
         return blueprint
     
     # * method: build_flask_app
-    def build_flask_app(self, view_func: callable, **kwargs) -> Flask:
+    def build_flask_app(self, view_func: Callable, **kwargs) -> Flask:
         '''
         Build and return a Flask application instance.
 
         :param view_func: The view function to handle requests.
-        :type view_func: callable
+        :type view_func: Callable
         :param kwargs: Additional keyword arguments.
         :type kwargs: dict
         :return: A Flask application instance.

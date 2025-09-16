@@ -56,11 +56,11 @@ class FlaskBlueprint(ModelObject):
     A Flask blueprint model.
     '''
 
-    # * attribute: id
-    id = StringType(
+    # * attribute: name
+    name = StringType(
         required=True,
         metadata=dict(
-            description='The unique identifier of the blueprint.'
+            description='The name of the blueprint.'
         )
     )
 

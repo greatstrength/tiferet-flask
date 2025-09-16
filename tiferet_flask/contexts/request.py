@@ -41,7 +41,7 @@ class FlaskRequestContext(RequestContext):
             self.result = ''
         
         # Convert the response to a dictionary if it's a ModelObject.
-        if isinstance(result, ModelObject):
+        elif isinstance(result, ModelObject):
             self.result = result.to_primitive()
         
         # If the response is a list containing model objects, convert each to a dictionary.
