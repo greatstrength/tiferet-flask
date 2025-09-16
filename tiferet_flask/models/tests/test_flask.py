@@ -4,7 +4,7 @@
 import pytest
 
 # ** app
-from ...models.flask import *
+from ..flask import *
 
 # *** fixtures
 

@@ -7,7 +7,7 @@ from typing import List
 from tiferet.commands import raise_error
 
 # ** app
-from ..contracts.flask import (
+from ..contracts import (
     FlaskBlueprintContract,
     FlaskRouteContract,
     FlaskApiRepository

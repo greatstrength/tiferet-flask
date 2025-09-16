@@ -18,7 +18,7 @@ from tiferet.contexts.logging import LoggingContext
 # ** app
 from .request import FlaskRequestContext
 from ..handlers.flask import FlaskApiHandler
-from ..models.flask import FlaskBlueprint
+from ..models import FlaskBlueprint
 
 # *** contexts
 

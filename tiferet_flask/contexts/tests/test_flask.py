@@ -4,11 +4,13 @@
 import pytest
 from unittest import mock
 from flask import Flask, Blueprint
+from tiferet import (
+    ModelObject
+)
 
 # ** app
 from ..flask import *
-from ...models.flask import (
-    ModelObject,
+from ...models import (
     FlaskBlueprint,
     FlaskRoute
 )

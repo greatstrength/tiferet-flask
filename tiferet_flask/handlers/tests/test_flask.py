@@ -3,17 +3,19 @@
 # ** infra
 import pytest
 from unittest import mock
-from tiferet.configs import TiferetError
+from tiferet import (
+    ModelObject,
+    TiferetError
+)
 
 # ** app
+from ...models import (
+    FlaskBlueprint,
+    FlaskRoute
+)
 from ..flask import (
     FlaskApiHandler,
     FlaskApiRepository
-)
-from ...models.flask import (
-    ModelObject,
-    FlaskBlueprint,
-    FlaskRoute
 )
 
 # *** fixtures

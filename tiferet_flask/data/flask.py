@@ -12,11 +12,11 @@ from tiferet.data import(
 )
 
 # ** app
-from ..models.flask import (
+from ..models import (
     FlaskRoute, 
     FlaskBlueprint
 )
-from ..contracts.flask import (
+from ..contracts import (
     FlaskRouteContract,
     FlaskBlueprintContract
 )

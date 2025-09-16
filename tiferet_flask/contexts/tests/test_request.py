@@ -2,9 +2,12 @@
 
 # ** infra
 import pytest
+from tiferet import (
+    ModelObject,
+    StringType
+)
 
 # ** app
-from tiferet.models import ModelObject, StringType
 from ..request import *
 
 # *** fixtures

@@ -4,16 +4,22 @@
 from typing import List, Any
 
 # ** infra
-from tiferet.proxies.yaml import YamlConfigurationProxy, TiferetError, raise_error
+from tiferet import (
+    TiferetError, 
+    raise_error
+)
+from tiferet.proxies.yaml import (
+    YamlConfigurationProxy
+)
 
 # ** app
-from ...data.flask import (
-    FlaskBlueprintYamlData,
+from ...contracts import (
+    FlaskApiRepository,
     FlaskBlueprintContract,
     FlaskRouteContract
 )
-from ...contracts.flask import (
-    FlaskApiRepository
+from ...data import (
+    FlaskBlueprintYamlData,
 )
 
 # *** proxies

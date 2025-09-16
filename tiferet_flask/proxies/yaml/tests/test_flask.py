@@ -5,11 +5,11 @@ import pytest
 from unittest import mock
 
 # ** app
-from ....data.flask import FlaskBlueprintYamlData
-from ....models.flask import (
+from ....models import (
     FlaskBlueprint,
     FlaskRoute
 )
+from ....data import FlaskBlueprintYamlData
 from ..flask import *
 
 # *** fixtures
@@ -115,7 +115,7 @@ def test_flask_yaml_proxy_get_route(flask_yaml_proxy):
     Test the get_route method of FlaskYamlProxy.
     '''
     # Call the get_route method to retrieve a specific route.
-    route = flask_yaml_proxy.get_route(route_id='sample_route', blueprint_id='sample_blueprint')
+    route = flask_yaml_proxy.get_route(route_id='sample_route', blueprint_name='sample_blueprint')
 
     # Assert that the returned route is as expected.
     assert isinstance(route, FlaskRoute)
