@@ -1,5 +1,5 @@
 [project]
-name = "tiferet_flask"
+name = "tiferet-flask"
 dynamic = ["version"]  # Mark version as dynamic
 description = "An extension of the Tiferet Framework for the Flask API."
 authors = [
