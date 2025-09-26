@@ -148,6 +148,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-prerelease
     if: github.event.release.prerelease == true
+    environment: pypi
 
     permissions:
       id-token: write
