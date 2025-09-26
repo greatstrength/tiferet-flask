@@ -1,5 +1,11 @@
 # *** imports
 
 # ** app
-from .models import *
-from .contexts import *
+try:
+    from .models import *
+    from .contexts import *
+except ImportError:
+    pass
+
+# *** version
+__version__ = "1.0.0"
