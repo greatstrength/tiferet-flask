@@ -49,14 +49,14 @@ With your environment ready, install dependencies and configure the project stru
 
 ### Installing Tiferet Flask
 
-In your activated virtual environment, install Tiferet, Flask, and the Tiferet Flask extension using pip:
+In your activated virtual environment, install the Tiferet Flask extension using pip:
 
 ```bash
 # Windows
-pip install tiferet
+pip install tiferet_flask
 
 # macOS/Linux
-pip3 install tiferet
+pip3 install tiferet_flask
 ```
 
 Note: If developing locally, replace with the appropriate local installation command.
