@@ -4,7 +4,7 @@
 from typing import List
 
 # ** infra
-from tiferet.commands import raise_error
+from tiferet import RaiseError
 
 # ** app
 from ..contracts import (
@@ -72,10 +72,10 @@ class FlaskApiHandler(object):
 
         # Raise an error if the route is not found.
         if route is None:
-            raise_error.execute(
+            RaiseError.execute(
                 'FLASK_ROUTE_NOT_FOUND',
                 f'Flask route not found for endpoint: {endpoint}',
-                endpoint
+                endpoint=endpoint
             )
 
         # Return the found route.
