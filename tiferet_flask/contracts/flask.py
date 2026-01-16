@@ -2,12 +2,12 @@
 
 # ** core
 from typing import List
+from abc import abstractmethod
 
 # ** infra
 from tiferet import (
     ModelContract,
     Repository,
-    abstractmethod
 )
 
 # *** contracts

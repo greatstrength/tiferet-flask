@@ -6,10 +6,8 @@ from typing import List, Any
 # ** infra
 from tiferet import (
     TiferetError, 
-    raise_error
-)
-from tiferet.proxies.yaml import (
-    YamlConfigurationProxy
+    RaiseError,
+    YamlFileProxy
 )
 
 # ** app
@@ -25,7 +23,7 @@ from ...data import (
 # *** proxies
 
 # ** proxy: flask_yaml_proxy
-class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
+class FlaskYamlProxy(FlaskApiRepository, YamlFileProxy):
     '''
     A YAML configuration proxy for Flask settings.
     '''
@@ -42,7 +40,7 @@ class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
         # Set the configuration file within the base class.
         super().__init__(flask_config_file)
 
-     # * method: load_yaml
+    # * method: load_yaml
     def load_yaml(self, start_node: callable = lambda data: data, create_data: callable = lambda data: data) -> Any:
         '''
         Load data from the YAML configuration file.
@@ -58,16 +56,16 @@ class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
         try:
             return super().load_yaml(
                 start_node=start_node,
-                create_data=create_data
+                data_factory=create_data
             )
 
         # Raise an error if the loading fails.
         except (Exception, TiferetError) as e:
-            raise_error.execute(
+            RaiseError.execute(
                 'FLASK_CONFIG_LOADING_FAILED',
-                f'Unable to load flask configuration file {self.config_file}: {e}.',
-                self.config_file,
-                str(e)
+                f'Unable to load flask configuration file {self.yaml_file}: {e}.',
+                config_file=self.yaml_file,
+                e=str(e)
             )
 
     # * method: get_blueprints

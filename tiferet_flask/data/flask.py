@@ -4,7 +4,7 @@
 from typing import Dict, Any
 
 # ** infra
-from tiferet.data import(
+from tiferet import (
     DataObject,
     StringType,
     DictType,
