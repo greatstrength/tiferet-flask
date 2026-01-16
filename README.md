@@ -169,12 +169,13 @@ from tiferet_flask import FlaskApiContext
 # *** functions
 
 # * functions: view_func
-def view_func(context: FlaskApiContext, **kwargs):
+def view_func(**kwargs):
     '''
     Call the view function whenever a route endpoint is invoked.
 
-    :param context: The Flask API context.
-    :type context: FlaskApiContext
+    The FlaskApiContext instance is accessed via closure (``context``),
+    so it does not need to be passed explicitly as a parameter.
+
     :param kwargs: Additional keyword arguments.
     :type kwargs: dict
     :return: The result of the view function.
@@ -184,7 +185,8 @@ def view_func(context: FlaskApiContext, **kwargs):
     # Get the Flask request context.
     from flask import request, jsonify
 
-    # Format the request data from the json payload (if applicable) and the query parameters.
+    # Format the request data from the json payload (if applicable),
+    # the query parameters, and any view arguments from the route.
     data = dict(request.json) if request.is_json else {}
     data.update(dict(request.args))
     data.update(dict(request.view_args))
@@ -194,10 +196,10 @@ def view_func(context: FlaskApiContext, **kwargs):
 
     # Execute the feature from the request endpoint.
     response, status_code = context.run(
-        feature_id=request.endpoint, 
-        headers=headers, 
+        feature_id=request.endpoint,
+        headers=headers,
         data=data,
-        **kwargs
+        **kwargs,
     )
 
     # Return the response as JSON.
