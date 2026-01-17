@@ -186,10 +186,10 @@ def view_func(**kwargs):
     from flask import request, jsonify
 
     # Format the request data from the json payload (if applicable),
-    # the query parameters, and any view arguments from the route.
+    # the query parameters, and any route parameters passed via kwargs.
     data = dict(request.json) if request.is_json else {}
     data.update(dict(request.args))
-    data.update(dict(request.view_args))
+    data.update(kwargs)
 
     # Format header data from the request headers.
     headers = dict(request.headers)
