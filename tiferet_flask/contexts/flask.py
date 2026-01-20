@@ -151,10 +151,10 @@ class FlaskApiContext(AppInterfaceContext):
         # Add the url rules.
         for route in flask_blueprint.routes:
             blueprint.add_url_rule(
-                route.rule, 
-                route.id, 
-                methods=route.methods, 
-                view_func=lambda: view_func(self, **kwargs),
+                route.rule,
+                route.id,
+                methods=route.methods,
+                view_func=view_func,
             )
 
         # Return the created blueprint.
