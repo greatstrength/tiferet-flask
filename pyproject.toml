@@ -9,7 +9,7 @@ license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "tiferet>=1.7.0",
+    "tiferet>=1.8.2",
     "flask>=3.1.2",
     "flask_cors>=6.0.1"
 ]
