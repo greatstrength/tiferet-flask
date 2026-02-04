@@ -4,7 +4,7 @@
 from typing import Any, Callable
 
 # ** infra
-from flask import Flask, Blueprint
+from flask import Flask, Blueprint, jsonify
 from tiferet.contexts.app import (
     AppInterfaceContext, 
     RequestContext,
@@ -90,21 +90,31 @@ class FlaskApiContext(AppInterfaceContext):
     # * method: handle_error
     def handle_error(self, error: Exception) -> Any:
         '''
-        Handle the error and return the response.
+        Handle the error and return the jsonified response with status code.
 
         :param error: The error to handle.
         :type error: Exception
-        :return: The error response.
-        :rtype: Any
+        :return: A tuple of (jsonified_error_response, status_code).
+        :rtype: tuple
         '''
 
-        # Handle the error and get the response from the parent context.
+        # If the error is not a TiferetError, wrap it in one.
         if not isinstance(error, TiferetError):
-            return super().handle_error(error), 500
+            error = TiferetError(
+                'APP_ERROR',
+                f'An error occurred in the app: {str(error)}',
+                error=str(error)
+            )
+            status_code = 500
+        else:
+            # Get the status code by the error code on the exception.
+            status_code = self.flask_api_handler.get_status_code(error.error_code)
 
-        # Get the status code by the error code on the exception.
-        status_code = self.flask_api_handler.get_status_code(error.error_code)
-        return super().handle_error(error), status_code
+        # Get formatted response from ErrorContext.
+        formatted_error = self.errors.handle_error(error)
+
+        # Return the jsonified error response with status code.
+        return jsonify(formatted_error), status_code
 
     # * method: handle_response
     def handle_response(self, request: RequestContext) -> Any:
