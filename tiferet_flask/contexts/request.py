@@ -39,11 +39,11 @@ class FlaskRequestContext(RequestContext):
         # If the response is None, return an empty response.
         if result is None:
             self.result = ''
-        
+
         # Convert the response to a dictionary if it's a ModelObject.
         elif isinstance(result, ModelObject):
             self.result = result.to_primitive()
-        
+
         # If the response is a list containing model objects, convert each to a dictionary.
         elif isinstance(result, list) and all(isinstance(item, ModelObject) for item in result):
             self.result = [item.to_primitive() for item in result]

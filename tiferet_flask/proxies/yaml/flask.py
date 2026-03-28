@@ -6,10 +6,8 @@ from typing import List, Any
 # ** infra
 from tiferet import (
     TiferetError, 
-    raise_error
-)
-from tiferet.proxies.yaml import (
-    YamlConfigurationProxy
+    RaiseError,
+    YamlFileProxy
 )
 
 # ** app
@@ -25,11 +23,11 @@ from ...data import (
 # *** proxies
 
 # ** proxy: flask_yaml_proxy
-class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
+class FlaskYamlProxy(FlaskApiRepository, YamlFileProxy):
     '''
     A YAML configuration proxy for Flask settings.
     '''
-    
+
     # * init
     def __init__(self, flask_config_file: str):
         '''
@@ -42,7 +40,7 @@ class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
         # Set the configuration file within the base class.
         super().__init__(flask_config_file)
 
-     # * method: load_yaml
+    # * method: load_yaml
     def load_yaml(self, start_node: callable = lambda data: data, create_data: callable = lambda data: data) -> Any:
         '''
         Load data from the YAML configuration file.
@@ -58,16 +56,16 @@ class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
         try:
             return super().load_yaml(
                 start_node=start_node,
-                create_data=create_data
+                data_factory=create_data
             )
-        
+
         # Raise an error if the loading fails.
         except (Exception, TiferetError) as e:
-            raise_error.execute(
+            RaiseError.execute(
                 'FLASK_CONFIG_LOADING_FAILED',
-                f'Unable to load flask configuration file {self.config_file}: {e}.',
-                self.config_file,
-                str(e)
+                f'Unable to load flask configuration file {self.yaml_file}: {e}.',
+                config_file=self.yaml_file,
+                e=str(e)
             )
 
     # * method: get_blueprints
@@ -90,7 +88,6 @@ class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
 
         # Map the loaded data to FlaskBlueprintContract instances.
         return [blueprint.map() for blueprint in data]
-    
     # * method: get_route
     def get_route(self, route_id: str, blueprint_name: str = None) -> FlaskRouteContract:
         '''
@@ -111,15 +108,14 @@ class FlaskYamlProxy(FlaskApiRepository, YamlConfigurationProxy):
         for blueprint in blueprints:
             if blueprint_name and blueprint.name != blueprint_name:
                 continue
-            
             # Search for the route within the blueprint.
             for route in blueprint.routes:
                 if route.id == route_id:
                     return route
-        
+
         # If not found, return None.
         return None
-    
+
     # * method: get_status_code
     def get_status_code(self, error_code: str) -> int:
         '''

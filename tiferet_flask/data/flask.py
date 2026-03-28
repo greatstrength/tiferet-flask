@@ -4,7 +4,7 @@
 from typing import Dict, Any
 
 # ** infra
-from tiferet.data import(
+from tiferet import (
     DataObject,
     StringType,
     DictType,
@@ -28,7 +28,6 @@ class FlaskRouteYamlData(DataObject, FlaskRoute):
     '''
     A data object for Flask route model from YAML.
     '''
-    
     class Options():
         serialize_when_none = False
         roles = {
@@ -59,13 +58,11 @@ class FlaskRouteYamlData(DataObject, FlaskRoute):
             FlaskRoute,
             id=id
         )
-    
 # ** data: flask_blueprint_yaml_data
 class FlaskBlueprintYamlData(DataObject, FlaskBlueprint):
     '''
     A data object for Flask blueprint model from YAML.
     '''
-    
     class Options():
         serialize_when_none = False
         roles = {

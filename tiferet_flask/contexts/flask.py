@@ -4,7 +4,7 @@
 from typing import Any, Callable
 
 # ** infra
-from flask import Flask, Blueprint
+from flask import Flask, Blueprint, jsonify
 from tiferet.contexts.app import (
     AppInterfaceContext, 
     RequestContext,
@@ -67,7 +67,6 @@ class FlaskApiContext(AppInterfaceContext):
     def parse_request(self, headers: dict = {}, data: dict = {}, feature_id: str = None, **kwargs) -> FlaskRequestContext:
         '''
         Parse the incoming request and return a FlaskRequestContext instance.
-        
         :param headers: The request headers.
         :type headers: dict
         :param data: The request data.
@@ -86,25 +85,35 @@ class FlaskApiContext(AppInterfaceContext):
             data=data,
             feature_id=feature_id,
         )
-    
+
     # * method: handle_error
     def handle_error(self, error: Exception) -> Any:
         '''
-        Handle the error and return the response.
+        Handle the error and return the jsonified response with status code.
 
         :param error: The error to handle.
         :type error: Exception
-        :return: The error response.
-        :rtype: Any
+        :return: A tuple of (jsonified_error_response, status_code).
+        :rtype: tuple
         '''
 
-        # Handle the error and get the response from the parent context.
+        # If the error is not a TiferetError, wrap it in one.
         if not isinstance(error, TiferetError):
-            return super().handle_error(error), 500
+            error = TiferetError(
+                'APP_ERROR',
+                f'An error occurred in the app: {str(error)}',
+                error=str(error)
+            )
+            status_code = 500
+        else:
+            # Get the status code by the error code on the exception.
+            status_code = self.flask_api_handler.get_status_code(error.error_code)
 
-        # Get the status code by the error code on the exception.
-        status_code = self.flask_api_handler.get_status_code(error.error_code)
-        return super().handle_error(error), status_code
+        # Get formatted response from ErrorContext.
+        formatted_error = self.errors.handle_error(error)
+
+        # Return the jsonified error response with status code.
+        return jsonify(formatted_error), status_code
 
     # * method: handle_response
     def handle_response(self, request: RequestContext) -> Any:
@@ -119,7 +128,6 @@ class FlaskApiContext(AppInterfaceContext):
 
         # Handle the response from the request context.
         response = super().handle_response(request)
-        
         # Retrieve the route by the request feature id.
         route = self.flask_api_handler.get_route(request.feature_id)
 
@@ -151,15 +159,15 @@ class FlaskApiContext(AppInterfaceContext):
         # Add the url rules.
         for route in flask_blueprint.routes:
             blueprint.add_url_rule(
-                route.rule, 
-                route.id, 
-                methods=route.methods, 
-                view_func=lambda: view_func(self, **kwargs),
+                route.rule,
+                route.id,
+                methods=route.methods,
+                view_func=view_func,
             )
-            
+
         # Return the created blueprint.
         return blueprint
-    
+
     # * method: build_flask_app
     def build_flask_app(self, view_func: Callable, **kwargs) -> Flask:
         '''
@@ -183,7 +191,6 @@ class FlaskApiContext(AppInterfaceContext):
 
         # Load the Flask blueprints.
         blueprints = self.flask_api_handler.get_blueprints()
-        
         # Create and register the blueprints.
         for bp in blueprints:
             blueprint = self.build_blueprint(bp, view_func=view_func, **kwargs)

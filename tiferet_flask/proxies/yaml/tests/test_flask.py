@@ -68,7 +68,7 @@ def test_flask_yaml_proxy_load_yaml_success(yaml_data):
     proxy = FlaskYamlProxy(flask_config_file='flask.yml')
 
     # Mock the load_yaml method to return the sample YAML data.
-    with mock.patch.object(YamlConfigurationProxy, 'load_yaml', return_value=yaml_data) as mock_load:
+    with mock.patch.object(YamlFileProxy, 'load_yaml', return_value=yaml_data) as mock_load:
         result = proxy.load_yaml(start_node=lambda data: data.get('flask', {}))
 
     # Assert that the result matches the expected YAML data and the mock was called once.
@@ -84,7 +84,7 @@ def test_flask_yaml_proxy_load_yaml_error():
     proxy = FlaskYamlProxy(flask_config_file='flask.yml')
 
     # Mock the load_yaml method to raise an exception for invalid YAML.
-    with mock.patch.object(YamlConfigurationProxy, 'load_yaml', side_effect=Exception('Invalid YAML')):
+    with mock.patch.object(YamlFileProxy, 'load_yaml', side_effect=Exception('Invalid YAML')):
         with pytest.raises(TiferetError) as exc_info:
             proxy.load_yaml(start_node=lambda data: data.get('flask', {}).get('blueprints', {}))
 
@@ -132,7 +132,11 @@ def test_flask_yaml_proxy_get_status_code(flask_yaml_proxy, yaml_data):
 
     # Create a FlaskYamlProxy instance with mocked YAML loading.
     flask_yaml_proxy.load_yaml = mock.Mock(return_value=yaml_data.get('flask', {}).get('errors', {}))
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> main
     # Call the get_status_code method to retrieve a status code for a known error.
     status_code = flask_yaml_proxy.get_status_code('TEST_ERROR')
 

@@ -1,0 +1,2 @@
+from tiferet import App
+

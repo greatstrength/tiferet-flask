@@ -116,11 +116,13 @@ def test_flask_api_context_handle_error(flask_api_context: FlaskApiContext):
     # Create a sample exception.
     sample_exception = Exception('Sample error')
 
-    response, status_code = flask_api_context.handle_error(sample_exception)
+    # Create a Flask app context for jsonify to work.
+    with Flask(__name__).app_context():
+        response, status_code = flask_api_context.handle_error(sample_exception)
 
-    # Assert that the response is a tuple of (response, status_code).
-    assert isinstance(response, dict)
-    assert status_code == 500 
+        # Assert that the response is a tuple of (response, status_code).
+        assert response.json == {'message': 'An error occurred.'}
+        assert status_code == 500
 
 # ** test: flask_api_context_handle_tiferet_error
 def test_flask_api_context_handle_tiferet_error(flask_api_context: FlaskApiContext):
@@ -137,15 +139,17 @@ def test_flask_api_context_handle_tiferet_error(flask_api_context: FlaskApiConte
     # Mock the error handler to return a specific response.
     flask_api_context.errors.handle_error.return_value = {'error_code': 'TEST_ERROR', 'text': 'A test Tiferet error occurred.'}
 
-    # Call the handle_error method.
-    response, status_code = flask_api_context.handle_error(sample_tiferet_error)
+    # Create a Flask app context for jsonify to work.
+    with Flask(__name__).app_context():
+        # Call the handle_error method.
+        response, status_code = flask_api_context.handle_error(sample_tiferet_error)
 
-    # Assert that the response is a tuple of (response, status_code).
-    assert response == {
-        'error_code': 'TEST_ERROR',
-        'text': 'A test Tiferet error occurred.'
-    }
-    assert status_code == 420
+        # Assert that the response is a tuple of (response, status_code).
+        assert response.json == {
+            'error_code': 'TEST_ERROR',
+            'text': 'A test Tiferet error occurred.'
+        }
+        assert status_code == 420
 
 # ** test: flask_api_context_handle_response
 def test_flask_api_context_handle_response(flask_api_context: FlaskApiContext):

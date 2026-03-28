@@ -2,12 +2,12 @@
 
 # ** core
 from typing import List
+from abc import abstractmethod
 
 # ** infra
 from tiferet import (
     ModelContract,
     Repository,
-    abstractmethod
 )
 
 # *** contracts
@@ -17,7 +17,6 @@ class FlaskRouteContract(ModelContract):
     '''
     A contract for Flask route models.
     '''
-    
     # * attribute: id
     id: str
 
@@ -29,7 +28,6 @@ class FlaskBlueprintContract(ModelContract):
     '''
     A contract for Flask blueprint models.
     '''
-    
     # * attribute: name
     name: str
 

@@ -9,7 +9,6 @@ import pytest
 # ** app
 from ..flask import *
 
-
 # *** fixtures
 
 # ** fixture: flask_blueprint_yaml_data_raw
