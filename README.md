@@ -2,13 +2,13 @@
 
 ## Introduction
 
-Tiferet Flask elevates the Tiferet Python framework by empowering developers to craft sophisticated Flask-based APIs rooted in Domain-Driven Design (DDD) principles. Drawing from the Kabbalistic ideal of beauty in harmony, Tiferet Flask seamlessly blends Tiferet’s command-driven architecture with Flask’s intuitive routing and request handling. The result is a powerful, modular platform for building scalable web services that distill complex business logic into elegant, extensible API designs.
+Tiferet Flask elevates the Tiferet Python framework by empowering developers to craft sophisticated Flask-based APIs rooted in Domain-Driven Design (DDD) principles. Drawing from the Kabbalistic ideal of beauty in harmony, Tiferet Flask seamlessly blends Tiferet's domain event-driven architecture with Flask's intuitive routing and request handling. The result is a powerful, modular platform for building scalable web services that distill complex business logic into elegant, extensible API designs.
 
-This tutorial walks you through creating a streamlined calculator API, leveraging Tiferet’s robust commands and configurations while introducing Flask-specific interfaces and endpoints. For a deeper understanding of Tiferet’s foundational concepts, consult the [Tiferet documentation](https://github.com/greatstrength/tiferet).
+This tutorial walks you through creating a streamlined calculator API, leveraging Tiferet's robust domain events and configurations while introducing Flask-specific interfaces and endpoints. For a deeper understanding of Tiferet's foundational concepts, consult the [Tiferet documentation](https://github.com/greatstrength/tiferet).
 
 ## Getting Started with Tiferet Flask
 
-Embark on your Tiferet Flask journey by preparing your development environment. This guide assumes familiarity with Tiferet’s core setup.
+Embark on your Tiferet Flask journey by preparing your development environment. This guide assumes familiarity with Tiferet's core setup.
 
 ### Installing Python
 
@@ -63,7 +63,7 @@ Note: If developing locally, replace with the appropriate local installation com
 
 ### Project Structure
 
-Adapt Tiferet’s project structure to incorporate Flask, adding a dedicated API script:
+Adapt Tiferet's project structure to incorporate Flask, adding a dedicated API script:
 
 ```plaintext
 project_root/
@@ -71,7 +71,7 @@ project_root/
 ├── calc_cli.py
 ├── calc_flask_api.py
 ├── app/
-    ├── commands/
+    ├── events/
     │   ├── __init__.py
     │   ├── calc.py
     │   └── settings.py
@@ -85,19 +85,19 @@ project_root/
         └── logging.yml
 ```
 
-The `app/commands/` and `app/configs/` directories align with Tiferet’s structure (see [Tiferet README](https://github.com/greatstrength/tiferet?tab=readme-ov-file#project-structure)). The `calc_flask_api.py` script initializes and runs the Flask API, while `flask.yml` defines blueprint and routing configurations.
+The `app/events/` and `app/configs/` directories align with Tiferet's structure (see [Tiferet README](https://github.com/greatstrength/tiferet?tab=readme-ov-file#project-structure)). The `calc_flask_api.py` script initializes and runs the Flask API, while `flask.yml` defines blueprint and routing configurations.
 
 ## Crafting the Calculator API
 
-Extend Tiferet’s calculator application into a powerful API by reusing its commands and configurations, enhanced with Flask-specific functionality.
+Extend Tiferet's calculator application into a powerful API by reusing its domain events and configurations, enhanced with Flask-specific functionality.
 
-### Defining Base and Arithmetic Command Classes
+### Defining Base and Arithmetic Domain Event Classes
 
-Leverage Tiferet’s `BasicCalcCommand` (`app/commands/settings.py`) for input validation and arithmetic commands (`AddNumber`, `SubtractNumber`, `MultiplyNumber`, `DivideNumber`, `ExponentiateNumber` in `app/commands/calc.py`) for core operations. These remain unchanged from the original calculator app; refer to the [Tiferet README](https://github.com/greatstrength/tiferet?tab=readme-ov-file#defining-base-and-arithmetic-command-classes) for details.
+Leverage Tiferet's `BasicCalcEvent` (`app/events/settings.py`) for input validation and arithmetic domain events (`AddNumber`, `SubtractNumber`, `MultiplyNumber`, `DivideNumber`, `ExponentiateNumber` in `app/events/calc.py`) for core operations. These remain unchanged from the original calculator app; refer to the [Tiferet README](https://github.com/greatstrength/tiferet?tab=readme-ov-file#defining-base-and-arithmetic-domain-event-classes) for details.
 
 ### Configuring the Calculator API
 
-Reuse Tiferet’s `container.yml` ([here](https://github.com/greatstrength/tiferet?tab=readme-ov-file#configuring-the-container-in-configscontaineryml)), `error.yml` ([here](https://github.com/greatstrength/tiferet?tab=readme-ov-file#configuring-the-errors-in-configserroryml)), and `feature.yml` ([here](https://github.com/greatstrength/tiferet?tab=readme-ov-file#configuring-the-features-in-configsfeatureyml)) for command mappings, error handling, and feature workflows. Introduce a Flask-specific interface in `app.yml` and routing configurations in `flask.yml`.
+Reuse Tiferet's `container.yml` ([here](https://github.com/greatstrength/tiferet?tab=readme-ov-file#configuring-the-container-in-configscontaineryml)), `error.yml` ([here](https://github.com/greatstrength/tiferet?tab=readme-ov-file#configuring-the-errors-in-configserroryml)), and `feature.yml` ([here](https://github.com/greatstrength/tiferet?tab=readme-ov-file#configuring-the-features-in-configsfeatureyml)) for domain event mappings, error handling, and feature workflows. Introduce a Flask-specific interface in `app.yml` and routing configurations in `flask.yml`.
 
 #### Configuring the App Interface in `configs/app.yml`
 
@@ -111,12 +111,18 @@ interfaces:
     module_path: tiferet_flask.contexts.flask
     class_name: FlaskApiContext
     attrs:
-      flask_api_handler:
-        module_path: tiferet_flask.handlers.flask
-        class_name: FlaskApiHandler
-      flask_repo:
-        module_path: tiferet_flask.proxies.yaml.flask
-        class_name: FlaskYamlProxy
+      get_blueprints_handler:
+        module_path: tiferet_flask.events.flask
+        class_name: GetFlaskBlueprints
+      get_route_handler:
+        module_path: tiferet_flask.events.flask
+        class_name: GetFlaskRoute
+      get_status_code_handler:
+        module_path: tiferet_flask.events.flask
+        class_name: GetFlaskStatusCode
+      flask_service:
+        module_path: tiferet_flask.repos.flask
+        class_name: FlaskYamlRepository
         params:
           flask_config_file: app/configs/flask.yml
 ```
@@ -257,4 +263,4 @@ curl -X POST http://127.0.0.1:5000/calc/divide -H "Content-Type: application/jso
 
 ## Conclusion
 
-Tiferet Flask empowers developers to craft elegant, modular Flask APIs within Tiferet’s DDD framework, as showcased in this calculator tutorial. By seamlessly reusing Tiferet’s commands and configurations and introducing a Flask interface, you’ve built a scalable, intuitive API with minimal effort. Expand its capabilities by integrating authentication, advanced features like trigonometric operations, or combining with Tiferet’s CLI or TUI contexts. Dive into the [Tiferet documentation](https://github.com/greatstrength/tiferet) for advanced DDD techniques, and experiment with `app/configs/` to customize your API, transforming complex web applications—whether monolithic or networked—into clear, purposeful solutions.
+Tiferet Flask empowers developers to craft elegant, modular Flask APIs within Tiferet's DDD framework, as showcased in this calculator tutorial. By seamlessly reusing Tiferet's domain events and configurations and introducing a Flask interface, you've built a scalable, intuitive API with minimal effort. Expand its capabilities by integrating authentication, advanced features like trigonometric operations, or combining with Tiferet's CLI or TUI contexts. Dive into the [Tiferet documentation](https://github.com/greatstrength/tiferet) for advanced DDD techniques, and experiment with `app/configs/` to customize your API, transforming complex web applications—whether monolithic or networked—into clear, purposeful solutions.
