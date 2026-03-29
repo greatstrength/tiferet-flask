@@ -4,7 +4,7 @@
 # Export the main application context and related modules.
 # Use a try-except block to avoid import errors on build systems.
 try:
-    from .models import *
+    from .domain import *
     from .contexts import *
 except Exception as e:
     import os, sys
@@ -14,4 +14,4 @@ except Exception as e:
     pass
 
 # *** version
-__version__ = "0.1.4"
+__version__ = "0.2.0"
