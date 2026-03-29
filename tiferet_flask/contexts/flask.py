@@ -4,21 +4,20 @@
 from typing import Any, Callable
 
 # ** infra
-from flask import Flask, Blueprint, jsonify
+from flask import Flask, Blueprint
 from tiferet.contexts.app import (
-    AppInterfaceContext, 
+    AppInterfaceContext,
     RequestContext,
     TiferetError
 )
-from tiferet.contexts.request import RequestContext
+from tiferet import TiferetAPIError
 from tiferet.contexts.error import ErrorContext
 from tiferet.contexts.feature import FeatureContext
 from tiferet.contexts.logging import LoggingContext
 
 # ** app
 from .request import FlaskRequestContext
-from ..handlers.flask import FlaskApiHandler
-from ..models import FlaskBlueprint
+from ..domain import FlaskBlueprint
 
 # *** contexts
 
@@ -31,19 +30,27 @@ class FlaskApiContext(AppInterfaceContext):
     # * attribute: flask_app
     flask_app: Flask
 
-    # * attribute: flask_api_handler
-    flask_api_handler: FlaskApiHandler
+    # * attribute: get_blueprints_handler
+    get_blueprints_handler: Callable
+
+    # * attribute: get_route_handler
+    get_route_handler: Callable
+
+    # * attribute: get_status_code_handler
+    get_status_code_handler: Callable
 
     # * init
-    def __init__(self, 
+    def __init__(self,
         interface_id: str,
         features: FeatureContext,
         errors: ErrorContext,
         logging: LoggingContext,
-        flask_api_handler: FlaskApiHandler
+        get_blueprints_handler: Callable,
+        get_route_handler: Callable,
+        get_status_code_handler: Callable
     ):
         '''
-        Initialize the application interface context.
+        Initialize the Flask API context.
 
         :param interface_id: The interface ID.
         :type interface_id: str
@@ -53,15 +60,21 @@ class FlaskApiContext(AppInterfaceContext):
         :type errors: ErrorContext
         :param logging: The logging context.
         :type logging: LoggingContext
-        :param flask_api_handler: The Flask API handler.
-        :type flask_api_handler: FlaskApiHandler
+        :param get_blueprints_handler: Callable to retrieve all Flask blueprints.
+        :type get_blueprints_handler: Callable
+        :param get_route_handler: Callable to retrieve a Flask route by endpoint.
+        :type get_route_handler: Callable
+        :param get_status_code_handler: Callable to retrieve HTTP status code for an error code.
+        :type get_status_code_handler: Callable
         '''
 
         # Call the parent constructor.
         super().__init__(interface_id, features, errors, logging)
 
-        # Set the attributes.
-        self.flask_api_handler = flask_api_handler
+        # Set the handler callables.
+        self.get_blueprints_handler = get_blueprints_handler
+        self.get_route_handler = get_route_handler
+        self.get_status_code_handler = get_status_code_handler
 
     # * method: parse_request
     def parse_request(self, headers: dict = {}, data: dict = {}, feature_id: str = None, **kwargs) -> FlaskRequestContext:
@@ -90,31 +103,29 @@ class FlaskApiContext(AppInterfaceContext):
     # * method: handle_error
     def handle_error(self, error: Exception) -> Any:
         '''
-        Handle the error and return the jsonified response with status code.
+        Handle the error and return the response with status code.
 
         :param error: The error to handle.
         :type error: Exception
-        :return: A tuple of (jsonified_error_response, status_code).
-        :rtype: tuple
+        :return: The error response tuple (response, status_code).
+        :rtype: Any
         '''
 
-        # If the error is not a TiferetError, wrap it in one.
+        # Determine the status code before formatting.
         if not isinstance(error, TiferetError):
-            error = TiferetError(
-                'APP_ERROR',
-                f'An error occurred in the app: {str(error)}',
-                error=str(error)
-            )
             status_code = 500
         else:
-            # Get the status code by the error code on the exception.
-            status_code = self.flask_api_handler.get_status_code(error.error_code)
+            status_code = self.get_status_code_handler(error_code=error.error_code)
 
-        # Get formatted response from ErrorContext.
-        formatted_error = self.errors.handle_error(error)
-
-        # Return the jsonified error response with status code.
-        return jsonify(formatted_error), status_code
+        # Format the error via the parent, catching the TiferetAPIError it raises.
+        try:
+            super().handle_error(error)
+        except TiferetAPIError as api_error:
+            return dict(
+                error_code=api_error.error_code,
+                name=api_error.name,
+                message=api_error.message,
+            ), status_code
 
     # * method: handle_response
     def handle_response(self, request: RequestContext) -> Any:
@@ -123,15 +134,15 @@ class FlaskApiContext(AppInterfaceContext):
 
         :param request: The request context.
         :type request: RequestContext
-        :return: The response.
+        :return: The response tuple (response, status_code).
         :rtype: Any
         '''
 
         # Handle the response from the request context.
         response = super().handle_response(request)
 
-        # Retrieve the route by the request feature id.
-        route = self.flask_api_handler.get_route(request.feature_id)
+        # Retrieve the route by the request feature id via the handler callable.
+        route = self.get_route_handler(endpoint=request.feature_id)
 
         # Return the result as JSON with the specified status code.
         return response, route.status_code
@@ -139,9 +150,9 @@ class FlaskApiContext(AppInterfaceContext):
     # * method: build_blueprint
     def build_blueprint(self, flask_blueprint: FlaskBlueprint, view_func: Callable, **kwargs) -> Blueprint:
         '''
-        Assembles a Flask blueprint from the given FlaskBlueprint model.
+        Assembles a Flask blueprint from the given FlaskBlueprint domain object.
 
-        :param flask_blueprint: The FlaskBlueprint model.
+        :param flask_blueprint: The FlaskBlueprint domain object.
         :type flask_blueprint: FlaskBlueprint
         :param view_func: The view function to handle requests.
         :type view_func: Callable
@@ -153,8 +164,8 @@ class FlaskApiContext(AppInterfaceContext):
 
         # Create the blueprint.
         blueprint = Blueprint(
-            flask_blueprint.name, 
-            __name__, 
+            flask_blueprint.name,
+            __name__,
             url_prefix=flask_blueprint.url_prefix
         )
 
@@ -164,7 +175,7 @@ class FlaskApiContext(AppInterfaceContext):
                 route.rule,
                 route.id,
                 methods=route.methods,
-                view_func=view_func,
+                view_func=lambda: view_func(self, **kwargs),
             )
 
         # Return the created blueprint.
@@ -191,8 +202,8 @@ class FlaskApiContext(AppInterfaceContext):
         flask_app = Flask(__name__)
         CORS(flask_app)
 
-        # Load the Flask blueprints.
-        blueprints = self.flask_api_handler.get_blueprints()
+        # Load the Flask blueprints via the handler callable.
+        blueprints = self.get_blueprints_handler()
 
         # Create and register the blueprints.
         for bp in blueprints:
