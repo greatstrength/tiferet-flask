@@ -31,13 +31,20 @@ class FlaskRequestContext(RequestContext):
         return super().handle_response()
 
     # * method: set_result
-    def set_result(self, result: Any):
+    def set_result(self, result: Any, data_key: str = None):
         '''
         Set the result of the request context.
 
         :param result: The result to set.
         :type result: Any
+        :param data_key: The key in the request data to set the result to. If provided, delegates to the parent method.
+        :type data_key: str
         '''
+
+        # If a data key is provided, delegate to the parent method.
+        if data_key:
+            super().set_result(result, data_key)
+            return
 
         # If the response is None, return an empty response.
         if result is None:

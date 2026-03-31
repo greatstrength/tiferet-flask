@@ -171,6 +171,23 @@ def test_request_context_handle_response_domain_object_list(request_context: Fla
     assert response[0].get('name') == 'item1'
     assert response[1].get('name') == 'item2'
 
+# ** test: request_context_set_result_with_data_key
+def test_request_context_set_result_with_data_key(request_context: FlaskRequestContext):
+    '''
+    Test that set_result with a data_key delegates to the parent method,
+    storing the result in request.data[data_key] instead of self.result.
+
+    :param request_context: The FlaskRequestContext instance.
+    :type request_context: FlaskRequestContext
+    '''
+
+    # Set the result with a data_key.
+    request_context.set_result('intermediate_value', data_key='step_result')
+
+    # Assert the result is stored in data, not in self.result.
+    assert request_context.data['step_result'] == 'intermediate_value'
+    assert request_context.result is None
+
 # ** test: request_context_handle_response_domain_object_dict
 def test_request_context_handle_response_domain_object_dict(request_context: FlaskRequestContext):
     '''
