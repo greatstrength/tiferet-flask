@@ -225,6 +225,40 @@ def test_flask_api_context_build_blueprint(
     assert blueprint.name == 'sample_blueprint'
     assert blueprint.url_prefix is None
 
+# ** test: flask_api_context_build_blueprint_view_func_direct
+def test_flask_api_context_build_blueprint_view_func_direct(
+    flask_api_context: FlaskApiContext,
+    sample_blueprint_aggregate: FlaskBlueprintAggregate
+):
+    '''
+    Test that build_blueprint passes view_func directly to add_url_rule,
+    not wrapped in a lambda.
+
+    :param flask_api_context: A FlaskApiContext instance.
+    :type flask_api_context: FlaskApiContext
+    :param sample_blueprint_aggregate: A sample blueprint aggregate.
+    :type sample_blueprint_aggregate: FlaskBlueprintAggregate
+    '''
+
+    # Create a sample view function.
+    def sample_view_func():
+        return 'Sample Response'
+
+    # Build a sample blueprint.
+    blueprint = flask_api_context.build_blueprint(
+        flask_blueprint=sample_blueprint_aggregate,
+        view_func=sample_view_func
+    )
+
+    # Get the registered view functions from the blueprint's deferred functions.
+    # Register the blueprint on a temporary Flask app to resolve deferred registrations.
+    app = Flask(__name__)
+    app.register_blueprint(blueprint)
+
+    # Assert the view function is the original function, not a lambda wrapper.
+    registered_view_func = app.view_functions.get('sample_blueprint.sample_route')
+    assert registered_view_func is sample_view_func
+
 # ** test: flask_api_context_build_flask_app
 def test_flask_api_context_build_flask_app(flask_api_context: FlaskApiContext):
     '''
