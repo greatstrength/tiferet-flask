@@ -1,3 +1,5 @@
+"""Flask domain events."""
+
 # *** imports
 
 # ** core
@@ -7,11 +9,8 @@ from typing import List
 from tiferet.events import DomainEvent
 
 # ** app
+from ..domain import FlaskBlueprint, FlaskRoute
 from ..interfaces import FlaskApiService
-from ..mappers import (
-    FlaskBlueprintAggregate,
-    FlaskRouteAggregate
-)
 
 # *** events
 
@@ -37,14 +36,14 @@ class GetFlaskBlueprints(DomainEvent):
         self.flask_service = flask_service
 
     # * method: execute
-    def execute(self, **kwargs) -> List[FlaskBlueprintAggregate]:
+    def execute(self, **kwargs) -> List[FlaskBlueprint]:
         '''
         Retrieve all Flask blueprints.
 
         :param kwargs: Additional keyword arguments.
         :type kwargs: dict
-        :return: A list of Flask blueprint aggregates.
-        :rtype: List[FlaskBlueprintAggregate]
+        :return: A list of Flask blueprints.
+        :rtype: List[FlaskBlueprint]
         '''
 
         # Retrieve all blueprints from the service.
@@ -76,7 +75,7 @@ class GetFlaskRoute(DomainEvent):
 
     # * method: execute
     @DomainEvent.parameters_required(['endpoint'])
-    def execute(self, endpoint: str, **kwargs) -> FlaskRouteAggregate:
+    def execute(self, endpoint: str, **kwargs) -> FlaskRoute:
         '''
         Retrieve a Flask route by its endpoint string.
 
@@ -87,8 +86,8 @@ class GetFlaskRoute(DomainEvent):
         :type endpoint: str
         :param kwargs: Additional keyword arguments.
         :type kwargs: dict
-        :return: The Flask route aggregate.
-        :rtype: FlaskRouteAggregate
+        :return: The Flask route.
+        :rtype: FlaskRoute
         '''
 
         # Parse the endpoint into blueprint name and route ID.
