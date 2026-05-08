@@ -1,18 +1,20 @@
+"""Flask request context."""
+
 # *** imports
 
 # ** core
 from typing import Any
 
 # ** infra
+from pydantic import BaseModel
 from tiferet.contexts.request import RequestContext
-from tiferet import DomainObject
 
 # *** contexts
 
 # ** context: flask_request_context
 class FlaskRequestContext(RequestContext):
     '''
-    A request context for Flask API interactions.
+    A context for handling Flask API request data and responses.
     '''
 
     # * method: handle_response
@@ -37,30 +39,32 @@ class FlaskRequestContext(RequestContext):
 
         :param result: The result to set.
         :type result: Any
-        :param data_key: The key in the request data to set the result to. If provided, delegates to the parent method.
+        :param data_key: The key in the request data to set the result to.
+            If provided, the raw result is stored for downstream commands.
+            If None, the result is serialized for the final response.
         :type data_key: str
         '''
 
-        # If a data key is provided, delegate to the parent method.
+        # If a data key is provided, delegate to the parent to store the raw result.
         if data_key:
-            super().set_result(result, data_key)
+            super().set_result(result, data_key=data_key)
             return
 
         # If the response is None, return an empty response.
         if result is None:
             self.result = ''
 
-        # Convert the response to a dictionary if it's a DomainObject.
-        elif isinstance(result, DomainObject):
-            self.result = result.to_primitive()
+        # Convert the response to a dictionary if it's a BaseModel.
+        elif isinstance(result, BaseModel):
+            self.result = result.model_dump()
 
-        # If the response is a list containing domain objects, convert each to a dictionary.
-        elif isinstance(result, list) and all(isinstance(item, DomainObject) for item in result):
-            self.result = [item.to_primitive() for item in result]
+        # If the response is a list containing BaseModel instances, convert each to a dictionary.
+        elif isinstance(result, list) and all(isinstance(item, BaseModel) for item in result):
+            self.result = [item.model_dump() for item in result]
 
-        # If the response is a dict containing domain objects, convert each to a dictionary.
-        elif isinstance(result, dict) and all(isinstance(value, DomainObject) for value in result.values()):
-            self.result = {key: value.to_primitive() for key, value in result.items()}
+        # If the response is a dict containing BaseModel instances, convert each to a dictionary.
+        elif isinstance(result, dict) and all(isinstance(value, BaseModel) for value in result.values()):
+            self.result = {key: value.model_dump() for key, value in result.items()}
 
         # Otherwise, set the result directly.
         else:
