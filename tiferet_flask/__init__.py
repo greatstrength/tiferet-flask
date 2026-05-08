@@ -6,6 +6,7 @@
 try:
     from .domain import *
     from .contexts import *
+    from .builders import FlaskAppBuilder, FlaskApp
 except Exception as e:
     import os, sys
     # Only print warning if TIFERET_SILENT_IMPORTS is not set to a truthy value
