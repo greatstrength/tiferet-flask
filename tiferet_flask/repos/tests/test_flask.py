@@ -2,7 +2,6 @@
 
 # ** core
 from pathlib import Path
-from typing import List
 
 # ** infra
 import pytest
@@ -10,10 +9,7 @@ import yaml
 
 # ** app
 from ..flask import FlaskYamlRepository
-from ...mappers import (
-    FlaskBlueprintAggregate,
-    FlaskRouteAggregate
-)
+from ...domain import FlaskBlueprint, FlaskRoute
 
 # *** fixtures
 
@@ -80,25 +76,9 @@ def flask_repo(flask_yaml_file: str) -> FlaskYamlRepository:
     :rtype: FlaskYamlRepository
     '''
 
-    return FlaskYamlRepository(flask_config_file=flask_yaml_file)
+    return FlaskYamlRepository(flask_yaml_file=flask_yaml_file)
 
 # *** tests
-
-# ** test: flask_repo_exists_true
-def test_flask_repo_exists_true(flask_repo: FlaskYamlRepository):
-    '''
-    Test that exists returns True for a known blueprint.
-    '''
-
-    assert flask_repo.exists('sample_blueprint') is True
-
-# ** test: flask_repo_exists_false
-def test_flask_repo_exists_false(flask_repo: FlaskYamlRepository):
-    '''
-    Test that exists returns False for an unknown blueprint.
-    '''
-
-    assert flask_repo.exists('nonexistent_blueprint') is False
 
 # ** test: flask_repo_get_blueprints
 def test_flask_repo_get_blueprints(flask_repo: FlaskYamlRepository):
@@ -111,11 +91,12 @@ def test_flask_repo_get_blueprints(flask_repo: FlaskYamlRepository):
 
     # Assert structure and values.
     assert len(blueprints) == 1
-    assert isinstance(blueprints[0], FlaskBlueprintAggregate)
+    assert isinstance(blueprints[0], FlaskBlueprint)
     assert blueprints[0].name == 'sample_blueprint'
     assert blueprints[0].url_prefix == '/api'
     assert len(blueprints[0].routes) == 1
     assert blueprints[0].routes[0].id == 'sample_route'
+    assert blueprints[0].routes[0].endpoint == 'sample_blueprint.sample_route'
     assert blueprints[0].routes[0].rule == '/sample'
     assert blueprints[0].routes[0].methods == ['GET', 'POST']
     assert blueprints[0].routes[0].status_code == 269
@@ -129,12 +110,13 @@ def test_flask_repo_get_route(flask_repo: FlaskYamlRepository):
     # Retrieve route by ID and blueprint name.
     route = flask_repo.get_route(
         route_id='sample_route',
-        blueprint_name='sample_blueprint'
+        blueprint_name='sample_blueprint',
     )
 
     # Assert route values.
-    assert isinstance(route, FlaskRouteAggregate)
+    assert isinstance(route, FlaskRoute)
     assert route.id == 'sample_route'
+    assert route.endpoint == 'sample_blueprint.sample_route'
     assert route.rule == '/sample'
     assert route.methods == ['GET', 'POST']
     assert route.status_code == 269
@@ -178,64 +160,3 @@ def test_flask_repo_get_status_code_default(flask_repo: FlaskYamlRepository):
 
     status_code = flask_repo.get_status_code('UNKNOWN_ERROR')
     assert status_code == 500
-
-# ** test: flask_repo_save
-def test_flask_repo_save(flask_repo: FlaskYamlRepository):
-    '''
-    Test saving a new blueprint to the YAML configuration.
-    '''
-
-    # Create a new blueprint aggregate.
-    new_blueprint = FlaskBlueprintAggregate.new(
-        name='new_blueprint',
-        url_prefix='/new',
-        routes=[
-            FlaskRouteAggregate.new(
-                id='new_route',
-                rule='/new-endpoint',
-                methods=['PUT'],
-                status_code=201
-            )
-        ]
-    )
-
-    # Save the blueprint.
-    flask_repo.save(new_blueprint)
-
-    # Verify it was persisted by reading it back.
-    assert flask_repo.exists('new_blueprint') is True
-    blueprints = flask_repo.get_blueprints()
-    assert len(blueprints) == 2
-
-    # Find the new blueprint.
-    saved = [b for b in blueprints if b.name == 'new_blueprint'][0]
-    assert saved.url_prefix == '/new'
-    assert len(saved.routes) == 1
-    assert saved.routes[0].id == 'new_route'
-
-# ** test: flask_repo_delete
-def test_flask_repo_delete(flask_repo: FlaskYamlRepository):
-    '''
-    Test deleting a blueprint from the YAML configuration.
-    '''
-
-    # Verify the blueprint exists.
-    assert flask_repo.exists('sample_blueprint') is True
-
-    # Delete the blueprint.
-    flask_repo.delete('sample_blueprint')
-
-    # Verify it was removed.
-    assert flask_repo.exists('sample_blueprint') is False
-
-# ** test: flask_repo_delete_idempotent
-def test_flask_repo_delete_idempotent(flask_repo: FlaskYamlRepository):
-    '''
-    Test that deleting a nonexistent blueprint does not raise an error.
-    '''
-
-    # Delete a nonexistent blueprint (should not raise).
-    flask_repo.delete('nonexistent_blueprint')
-
-    # Verify the existing blueprint is still present.
-    assert flask_repo.exists('sample_blueprint') is True
