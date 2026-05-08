@@ -1,13 +1,15 @@
+"""Flask domain models."""
+
 # *** imports
 
+# ** core
+from typing import List
+
 # ** infra
-from tiferet import (
-    DomainObject,
-    StringType,
-    IntegerType,
-    ListType,
-    ModelType
-)
+from pydantic import Field
+
+# ** app
+from tiferet.domain import DomainObject
 
 # *** models
 
@@ -18,36 +20,33 @@ class FlaskRoute(DomainObject):
     '''
 
     # * attribute: id
-    id = StringType(
-        required=True,
-        metadata=dict(
-            description='The unique identifier of the route endpoint.'
-        )
+    id: str = Field(
+        ...,
+        description='The unique identifier of the route.',
+    )
+
+    # * attribute: endpoint
+    endpoint: str = Field(
+        ...,
+        description='The fully-qualified endpoint (blueprint_name.route_id).',
     )
 
     # * attribute: rule
-    rule = StringType(
-        required=True,
-        metadata=dict(
-            description='The URL rule as string.'
-        )
+    rule: str = Field(
+        ...,
+        description='The URL rule as string.',
     )
 
     # * attribute: methods
-    methods = ListType(
-        StringType,
-        required=True,
-        metadata=dict(
-            description='A list of HTTP methods this rule should be limited to.'
-        )
+    methods: List[str] = Field(
+        ...,
+        description='HTTP methods this rule is limited to.',
     )
 
     # * attribute: status_code
-    status_code = IntegerType(
+    status_code: int = Field(
         default=200,
-        metadata=dict(
-            description='The default HTTP status code for the route response.'
-        )
+        description='The default HTTP status code for the route response.',
     )
 
 # ** model: flask_blueprint
@@ -57,25 +56,19 @@ class FlaskBlueprint(DomainObject):
     '''
 
     # * attribute: name
-    name = StringType(
-        required=True,
-        metadata=dict(
-            description='The name of the blueprint.'
-        )
+    name: str = Field(
+        ...,
+        description='The name of the blueprint.',
     )
 
     # * attribute: url_prefix
-    url_prefix = StringType(
-        metadata=dict(
-            description='The URL prefix for all routes in this blueprint.'
-        )
+    url_prefix: str | None = Field(
+        default=None,
+        description='The URL prefix for all routes in this blueprint.',
     )
 
     # * attribute: routes
-    routes = ListType(
-        ModelType(FlaskRoute),
-        default=[],
-        metadata=dict(
-            description='A list of routes associated with this blueprint.'
-        )
+    routes: List[FlaskRoute] = Field(
+        default_factory=list,
+        description='A list of routes associated with this blueprint.',
     )

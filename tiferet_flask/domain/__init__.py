@@ -1,3 +1,5 @@
+"""Flask domain objects."""
+
 # *** imports
 
 # ** app
