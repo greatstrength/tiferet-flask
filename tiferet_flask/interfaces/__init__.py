@@ -1,3 +1,5 @@
+"""Flask service interfaces."""
+
 # *** imports
 
 # ** app
