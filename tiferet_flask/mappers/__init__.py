@@ -1,3 +1,5 @@
+"""Flask mappers."""
+
 # *** imports
 
 # ** app
