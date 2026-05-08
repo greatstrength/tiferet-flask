@@ -1,22 +1,21 @@
+"""Flask mappers."""
+
 # *** imports
 
 # ** core
-from typing import Dict, Any, List
+from typing import Any, ClassVar, Dict, List
 
 # ** infra
-from tiferet import (
-    DomainObject,
-    StringType,
-    DictType,
-    ModelType,
-    Aggregate,
-    TransferObject
-)
+from pydantic import Field
 
 # ** app
 from ..domain import (
     FlaskRoute,
-    FlaskBlueprint
+    FlaskBlueprint,
+)
+from tiferet.mappers import (
+    Aggregate,
+    TransferObject,
 )
 
 # *** mappers
@@ -24,83 +23,55 @@ from ..domain import (
 # ** mapper: flask_route_aggregate
 class FlaskRouteAggregate(FlaskRoute, Aggregate):
     '''
-    A mutable aggregate for Flask route domain objects.
+    Aggregate for the FlaskRoute domain object.
     '''
 
-    # * method: new
-    @staticmethod
-    def new(
-        validate: bool = True,
-        strict: bool = True,
-        **kwargs
-    ) -> 'FlaskRouteAggregate':
-        '''
-        Initializes a new Flask route aggregate.
-
-        :param validate: True to validate the aggregate object.
-        :type validate: bool
-        :param strict: True to enforce strict mode.
-        :type strict: bool
-        :param kwargs: Keyword arguments.
-        :type kwargs: dict
-        :return: A new Flask route aggregate.
-        :rtype: FlaskRouteAggregate
-        '''
-
-        # Create a new Flask route aggregate.
-        return Aggregate.new(
-            FlaskRouteAggregate,
-            validate=validate,
-            strict=strict,
-            **kwargs
-        )
+    pass
 
 # ** mapper: flask_blueprint_aggregate
 class FlaskBlueprintAggregate(FlaskBlueprint, Aggregate):
     '''
-    A mutable aggregate for Flask blueprint domain objects.
+    Aggregate for the FlaskBlueprint domain object.
     '''
 
-    # * method: new
-    @staticmethod
-    def new(
-        validate: bool = True,
-        strict: bool = True,
-        **kwargs
-    ) -> 'FlaskBlueprintAggregate':
+    # * method: add_route
+    def add_route(self,
+            endpoint: str,
+            rule: str,
+            methods: List[str],
+            status_code: int = 200,
+        ) -> FlaskRouteAggregate:
         '''
-        Initializes a new Flask blueprint aggregate.
+        Add a new route to the blueprint.
 
-        :param validate: True to validate the aggregate object.
-        :type validate: bool
-        :param strict: True to enforce strict mode.
-        :type strict: bool
-        :param kwargs: Keyword arguments.
-        :type kwargs: dict
-        :return: A new Flask blueprint aggregate.
-        :rtype: FlaskBlueprintAggregate
+        :param endpoint: The unique identifier of the route endpoint.
+        :type endpoint: str
+        :param rule: The URL rule as string.
+        :type rule: str
+        :param methods: A list of HTTP methods this rule should be limited to.
+        :type methods: List[str]
+        :param status_code: The default HTTP status code for the route response.
+        :type status_code: int
+        :return: The created route aggregate.
+        :rtype: FlaskRouteAggregate
         '''
 
-        # Create a new Flask blueprint aggregate.
-        return Aggregate.new(
-            FlaskBlueprintAggregate,
-            validate=validate,
-            strict=strict,
-            **kwargs
+        # Create the route aggregate.
+        route = FlaskRouteAggregate(
+            id=endpoint,
+            endpoint=f'{self.name}.{endpoint}',
+            rule=rule,
+            methods=methods,
+            status_code=status_code,
         )
 
-    # * method: add_route
-    def add_route(self, route: FlaskRoute) -> None:
-        '''
-        Add a route to the blueprint.
+        # Copy routes to a local list, append, and reassign.
+        routes = list(self.routes)
+        routes.append(route)
+        self.routes = routes
 
-        :param route: The route to add.
-        :type route: FlaskRoute
-        '''
-
-        # Append the route and validate.
-        self.routes.append(route)
-        self.validate()
+        # Return the created route.
+        return route
 
     # * method: remove_route
     def remove_route(self, route_id: str) -> None:
@@ -111,150 +82,138 @@ class FlaskBlueprintAggregate(FlaskBlueprint, Aggregate):
         :type route_id: str
         '''
 
-        # Filter out the route with the specified ID.
+        # Filter out the route with the specified ID and reassign.
         self.routes = [r for r in self.routes if r.id != route_id]
-        self.validate()
 
 # ** mapper: flask_route_yaml_object
 class FlaskRouteYamlObject(FlaskRoute, TransferObject):
     '''
-    A YAML transfer object for Flask route data.
+    A YAML data representation of a FlaskRoute object.
     '''
 
-    class Options():
-        '''
-        Options for the transfer object.
-        '''
-
-        serialize_when_none = False
-        roles = {
-            'to_model': TransferObject.allow(),
-            'to_data': TransferObject.deny('id')
-        }
+    # * attribute: _ROLES
+    _ROLES: ClassVar[Dict[str, Dict[str, Any]]] = {
+        'to_model': {},
+        'to_data.yaml': {'exclude': {'id', 'endpoint'}},
+    }
 
     # * attribute: id
-    id = StringType(
-        metadata=dict(
-            description='The unique identifier of the route endpoint.'
-        )
+    id: str | None = Field(
+        default=None,
+        description='The unique identifier of the route (provided via dict key during mapping).',
+    )
+
+    # * attribute: endpoint
+    endpoint: str | None = Field(
+        default=None,
+        description='The fully-qualified endpoint (blueprint_name.route_id).',
     )
 
     # * method: map
-    def map(self, **kwargs) -> FlaskRouteAggregate:
+    def map(self, id: str = None, endpoint: str = None, **overrides) -> FlaskRouteAggregate:
         '''
         Map the YAML data to a FlaskRouteAggregate.
 
-        :param kwargs: Additional keyword arguments.
-        :type kwargs: dict
-        :return: A Flask route aggregate.
+        :param id: The route identifier override.
+        :type id: str
+        :param endpoint: The endpoint override.
+        :type endpoint: str
+        :param overrides: Additional keyword arguments.
+        :type overrides: dict
+        :return: A new FlaskRouteAggregate.
         :rtype: FlaskRouteAggregate
         '''
 
-        # Map the transfer object to an aggregate.
+        # Map to the route aggregate with overrides.
         return super().map(
             FlaskRouteAggregate,
-            **kwargs
+            id=id,
+            endpoint=endpoint,
+            **overrides,
         )
+
+    # * method: from_model
+    @classmethod
+    def from_model(cls, route: FlaskRoute, **overrides) -> 'FlaskRouteYamlObject':
+        '''
+        Create a FlaskRouteYamlObject from a FlaskRoute model.
+
+        :param route: The FlaskRoute model.
+        :type route: FlaskRoute
+        :param overrides: Additional keyword arguments.
+        :type overrides: dict
+        :return: A new FlaskRouteYamlObject.
+        :rtype: FlaskRouteYamlObject
+        '''
+
+        # Create from the model.
+        return super().from_model(route, **overrides)
 
 # ** mapper: flask_blueprint_yaml_object
 class FlaskBlueprintYamlObject(FlaskBlueprint, TransferObject):
     '''
-    A YAML transfer object for Flask blueprint data.
+    A YAML data representation of a FlaskBlueprint object.
     '''
 
-    class Options():
-        '''
-        Options for the transfer object.
-        '''
-
-        serialize_when_none = False
-        roles = {
-            'to_model': TransferObject.deny('routes'),
-            'to_data': TransferObject.deny('name')
-        }
+    # * attribute: _ROLES
+    _ROLES: ClassVar[Dict[str, Dict[str, Any]]] = {
+        'to_model': {'exclude': {'routes'}},
+        'to_data.yaml': {'by_alias': True, 'exclude': {'name'}},
+    }
 
     # * attribute: name
-    name = StringType(
-        metadata=dict(
-            description='The name of the blueprint.'
-        )
+    name: str | None = Field(
+        default=None,
+        description='The name of the blueprint.',
     )
 
     # * attribute: routes
-    routes = DictType(
-        ModelType(FlaskRouteYamlObject),
-        default={},
-        metadata=dict(
-            description='A dictionary of route ID to FlaskRouteYamlObject instances.'
-        )
+    routes: Dict[str, FlaskRouteYamlObject] = Field(
+        default_factory=dict,
+        description='A dictionary of route ID to FlaskRouteYamlObject instances.',
     )
 
-    # * method: from_data
-    @staticmethod
-    def from_data(routes: Dict[str, Any] = {}, **kwargs) -> 'FlaskBlueprintYamlObject':
-        '''
-        Create a FlaskBlueprintYamlObject instance from raw data.
-
-        :param routes: A dictionary of route ID to route data.
-        :type routes: Dict[str, Any]
-        :param kwargs: Additional keyword arguments.
-        :type kwargs: dict
-        :return: A new FlaskBlueprintYamlObject instance.
-        :rtype: FlaskBlueprintYamlObject
-        '''
-
-        # Convert each route in the routes dictionary to a FlaskRouteYamlObject.
-        route_objs = {id: TransferObject.from_data(
-            FlaskRouteYamlObject,
-            id=id, **data
-        ) for id, data in routes.items()}
-
-        # Create the blueprint transfer object.
-        return TransferObject.from_data(
-            FlaskBlueprintYamlObject,
-            routes=route_objs,
-            **kwargs
-        )
-
     # * method: map
-    def map(self, **kwargs) -> FlaskBlueprintAggregate:
+    def map(self, **overrides) -> FlaskBlueprintAggregate:
         '''
         Map the YAML data to a FlaskBlueprintAggregate.
 
-        :param kwargs: Additional keyword arguments.
-        :type kwargs: dict
-        :return: A Flask blueprint aggregate.
+        :param overrides: Additional keyword arguments.
+        :type overrides: dict
+        :return: A new FlaskBlueprintAggregate.
         :rtype: FlaskBlueprintAggregate
         '''
 
-        # Map routes from dict to list, passing the dict key as the route id.
+        # Map to the blueprint aggregate with nested route conversion.
         return super().map(
             FlaskBlueprintAggregate,
-            routes=[route.map(id=id) for id, route in self.routes.items()],
-            **kwargs
+            routes=[
+                route.map(id=id, endpoint=f'{self.name}.{id}')
+                for id, route in self.routes.items()
+            ],
+            **overrides,
         )
 
     # * method: from_model
-    @staticmethod
-    def from_model(blueprint: FlaskBlueprint, **kwargs) -> 'FlaskBlueprintYamlObject':
+    @classmethod
+    def from_model(cls, blueprint: FlaskBlueprint, **overrides) -> 'FlaskBlueprintYamlObject':
         '''
-        Creates a FlaskBlueprintYamlObject from a FlaskBlueprint aggregate.
+        Create a FlaskBlueprintYamlObject from a FlaskBlueprint model.
 
-        :param blueprint: The blueprint aggregate.
+        :param blueprint: The FlaskBlueprint model.
         :type blueprint: FlaskBlueprint
-        :param kwargs: Additional keyword arguments.
-        :type kwargs: dict
+        :param overrides: Additional keyword arguments.
+        :type overrides: dict
         :return: A new FlaskBlueprintYamlObject.
         :rtype: FlaskBlueprintYamlObject
         '''
 
-        # Convert routes list to dict keyed by route ID.
-        return TransferObject.from_model(
-            FlaskBlueprintYamlObject,
+        # Create from the model, converting nested routes list to dict.
+        return super().from_model(
             blueprint,
             routes={
-                route.id: TransferObject.from_model(FlaskRouteYamlObject, route)
+                route.id: FlaskRouteYamlObject.from_model(route)
                 for route in blueprint.routes
             },
-            **kwargs,
+            **overrides,
         )

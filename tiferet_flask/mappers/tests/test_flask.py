@@ -5,7 +5,7 @@ from typing import List
 
 # ** infra
 import pytest
-from tiferet import DomainObject, TransferObject
+from tiferet import TiferetError
 
 # ** app
 from ..flask import (
@@ -28,11 +28,12 @@ def flask_route_aggregate() -> FlaskRouteAggregate:
     :rtype: FlaskRouteAggregate
     '''
 
-    return FlaskRouteAggregate.new(
+    return FlaskRouteAggregate(
         id='sample_route',
+        endpoint='sample_blueprint.sample_route',
         rule='/sample',
         methods=['GET', 'POST'],
-        status_code=200
+        status_code=200,
     )
 
 # ** fixture: flask_blueprint_aggregate
@@ -47,9 +48,9 @@ def flask_blueprint_aggregate(flask_route_aggregate: FlaskRouteAggregate) -> Fla
     :rtype: FlaskBlueprintAggregate
     '''
 
-    return FlaskBlueprintAggregate.new(
+    return FlaskBlueprintAggregate(
         name='sample_blueprint',
-        routes=[flask_route_aggregate]
+        routes=[flask_route_aggregate],
     )
 
 # ** fixture: flask_blueprint_yaml_data_raw
@@ -86,9 +87,8 @@ def flask_blueprint_yaml_data(flask_blueprint_yaml_data_raw: dict) -> List[Flask
     '''
 
     return [
-        FlaskBlueprintYamlObject.from_data(
-            name=name,
-            **blueprint
+        FlaskBlueprintYamlObject.model_validate(
+            dict(name=name, **blueprint)
         ) for name, blueprint in flask_blueprint_yaml_data_raw.items()
     ]
 
@@ -101,9 +101,28 @@ def test_flask_route_aggregate_creation(flask_route_aggregate: FlaskRouteAggrega
     '''
 
     assert flask_route_aggregate.id == 'sample_route'
+    assert flask_route_aggregate.endpoint == 'sample_blueprint.sample_route'
     assert flask_route_aggregate.rule == '/sample'
     assert flask_route_aggregate.methods == ['GET', 'POST']
     assert flask_route_aggregate.status_code == 200
+
+# ** test: flask_route_aggregate_set_attribute
+def test_flask_route_aggregate_set_attribute(flask_route_aggregate: FlaskRouteAggregate):
+    '''
+    Test valid set_attribute on FlaskRouteAggregate.
+    '''
+
+    flask_route_aggregate.set_attribute('rule', '/updated')
+    assert flask_route_aggregate.rule == '/updated'
+
+# ** test: flask_route_aggregate_set_attribute_invalid
+def test_flask_route_aggregate_set_attribute_invalid(flask_route_aggregate: FlaskRouteAggregate):
+    '''
+    Test that set_attribute raises error for an invalid attribute.
+    '''
+
+    with pytest.raises(TiferetError):
+        flask_route_aggregate.set_attribute('invalid_attr', 'value')
 
 # ** test: flask_blueprint_aggregate_creation
 def test_flask_blueprint_aggregate_creation(flask_blueprint_aggregate: FlaskBlueprintAggregate):
@@ -120,18 +139,17 @@ def test_flask_blueprint_aggregate_add_route(flask_blueprint_aggregate: FlaskBlu
     Test adding a route to a FlaskBlueprintAggregate.
     '''
 
-    # Create a new route aggregate.
-    new_route = FlaskRouteAggregate.new(
-        id='new_route',
+    # Add a route using the new signature.
+    route = flask_blueprint_aggregate.add_route(
+        endpoint='new_route',
         rule='/new',
-        methods=['DELETE']
+        methods=['DELETE'],
     )
 
-    # Add the route.
-    flask_blueprint_aggregate.add_route(new_route)
-
-    # Assert the route was added.
+    # Assert the route was added with correct endpoint.
     assert len(flask_blueprint_aggregate.routes) == 2
+    assert route.id == 'new_route'
+    assert route.endpoint == 'sample_blueprint.new_route'
     assert flask_blueprint_aggregate.routes[1].id == 'new_route'
 
 # ** test: flask_blueprint_aggregate_remove_route
@@ -159,7 +177,6 @@ def test_flask_blueprint_yaml_data_creation(flask_blueprint_yaml_data: List[Flas
     assert len(blueprint.routes) == 1
 
     route = blueprint.routes['sample_route']
-    assert route.id == 'sample_route'
     assert route.rule == '/sample'
     assert route.methods == ['GET', 'POST']
 
@@ -180,6 +197,7 @@ def test_flask_blueprint_yaml_data_map(flask_blueprint_yaml_data: List[FlaskBlue
     route = aggregate.routes[0]
     assert isinstance(route, FlaskRouteAggregate)
     assert route.id == 'sample_route'
+    assert route.endpoint == 'sample_blueprint.sample_route'
     assert route.rule == '/sample'
     assert route.methods == ['GET', 'POST']
 
@@ -196,3 +214,24 @@ def test_flask_blueprint_yaml_object_from_model(flask_blueprint_aggregate: Flask
     assert yaml_obj.name == 'sample_blueprint'
     assert 'sample_route' in yaml_obj.routes
     assert yaml_obj.routes['sample_route'].rule == '/sample'
+
+# ** test: flask_blueprint_round_trip
+def test_flask_blueprint_round_trip(flask_blueprint_aggregate: FlaskBlueprintAggregate):
+    '''
+    Test full round-trip: aggregate → YAML object → aggregate.
+    '''
+
+    # Convert aggregate to YAML object.
+    yaml_obj = FlaskBlueprintYamlObject.from_model(flask_blueprint_aggregate)
+
+    # Map back to aggregate.
+    result = yaml_obj.map()
+
+    # Assert the round-trip preserves data.
+    assert isinstance(result, FlaskBlueprintAggregate)
+    assert result.name == flask_blueprint_aggregate.name
+    assert len(result.routes) == len(flask_blueprint_aggregate.routes)
+    assert result.routes[0].id == flask_blueprint_aggregate.routes[0].id
+    assert result.routes[0].endpoint == flask_blueprint_aggregate.routes[0].endpoint
+    assert result.routes[0].rule == flask_blueprint_aggregate.routes[0].rule
+    assert result.routes[0].methods == flask_blueprint_aggregate.routes[0].methods
