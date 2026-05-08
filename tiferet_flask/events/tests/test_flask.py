@@ -3,7 +3,7 @@
 # ** infra
 import pytest
 from unittest import mock
-from tiferet import DomainObject, TiferetError
+from tiferet import TiferetError
 from tiferet.events import DomainEvent
 
 # ** app
@@ -12,61 +12,59 @@ from ..flask import (
     GetFlaskRoute,
     GetFlaskStatusCode
 )
+from ...domain import FlaskBlueprint, FlaskRoute
 from ...interfaces import FlaskApiService
-from ...mappers import (
-    FlaskBlueprintAggregate,
-    FlaskRouteAggregate
-)
 
 # *** fixtures
 
 # ** fixture: sample_route
 @pytest.fixture
-def sample_route() -> FlaskRouteAggregate:
+def sample_route() -> FlaskRoute:
     '''
-    A sample Flask route aggregate for testing.
+    A sample Flask route for testing.
 
-    :return: A FlaskRouteAggregate instance.
-    :rtype: FlaskRouteAggregate
+    :return: A FlaskRoute instance.
+    :rtype: FlaskRoute
     '''
 
-    return FlaskRouteAggregate.new(
+    return FlaskRoute(
         id='sample_route',
+        endpoint='sample_blueprint.sample_route',
         rule='/sample',
         methods=['GET', 'POST'],
-        status_code=269
+        status_code=269,
     )
 
 # ** fixture: sample_blueprint
 @pytest.fixture
-def sample_blueprint(sample_route: FlaskRouteAggregate) -> FlaskBlueprintAggregate:
+def sample_blueprint(sample_route: FlaskRoute) -> FlaskBlueprint:
     '''
-    A sample Flask blueprint aggregate for testing.
+    A sample Flask blueprint for testing.
 
-    :param sample_route: A sample route aggregate.
-    :type sample_route: FlaskRouteAggregate
-    :return: A FlaskBlueprintAggregate instance.
-    :rtype: FlaskBlueprintAggregate
+    :param sample_route: A sample route.
+    :type sample_route: FlaskRoute
+    :return: A FlaskBlueprint instance.
+    :rtype: FlaskBlueprint
     '''
 
-    return FlaskBlueprintAggregate.new(
+    return FlaskBlueprint(
         name='sample_blueprint',
-        routes=[sample_route]
+        routes=[sample_route],
     )
 
 # ** fixture: mock_flask_service
 @pytest.fixture
 def mock_flask_service(
-    sample_blueprint: FlaskBlueprintAggregate,
-    sample_route: FlaskRouteAggregate
+    sample_blueprint: FlaskBlueprint,
+    sample_route: FlaskRoute,
 ) -> FlaskApiService:
     '''
     A mock FlaskApiService for testing.
 
-    :param sample_blueprint: A sample blueprint aggregate.
-    :type sample_blueprint: FlaskBlueprintAggregate
-    :param sample_route: A sample route aggregate.
-    :type sample_route: FlaskRouteAggregate
+    :param sample_blueprint: A sample blueprint.
+    :type sample_blueprint: FlaskBlueprint
+    :param sample_route: A sample route.
+    :type sample_route: FlaskRoute
     :return: A mocked FlaskApiService.
     :rtype: FlaskApiService
     '''
@@ -83,7 +81,7 @@ def mock_flask_service(
 # ** test: get_flask_blueprints_success
 def test_get_flask_blueprints_success(
     mock_flask_service: FlaskApiService,
-    sample_blueprint: FlaskBlueprintAggregate
+    sample_blueprint: FlaskBlueprint,
 ) -> None:
     '''
     Test successful retrieval of all Flask blueprints.
@@ -91,7 +89,7 @@ def test_get_flask_blueprints_success(
     :param mock_flask_service: The mocked Flask API service.
     :type mock_flask_service: FlaskApiService
     :param sample_blueprint: The expected blueprint.
-    :type sample_blueprint: FlaskBlueprintAggregate
+    :type sample_blueprint: FlaskBlueprint
     '''
 
     # Execute the event via DomainEvent.handle.
@@ -107,7 +105,7 @@ def test_get_flask_blueprints_success(
 # ** test: get_flask_route_success
 def test_get_flask_route_success(
     mock_flask_service: FlaskApiService,
-    sample_route: FlaskRouteAggregate
+    sample_route: FlaskRoute,
 ) -> None:
     '''
     Test successful retrieval of a Flask route with blueprint prefix.
@@ -115,7 +113,7 @@ def test_get_flask_route_success(
     :param mock_flask_service: The mocked Flask API service.
     :type mock_flask_service: FlaskApiService
     :param sample_route: The expected route.
-    :type sample_route: FlaskRouteAggregate
+    :type sample_route: FlaskRoute
     '''
 
     # Execute the event via DomainEvent.handle.
@@ -135,7 +133,7 @@ def test_get_flask_route_success(
 # ** test: get_flask_route_without_blueprint
 def test_get_flask_route_without_blueprint(
     mock_flask_service: FlaskApiService,
-    sample_route: FlaskRouteAggregate
+    sample_route: FlaskRoute,
 ) -> None:
     '''
     Test retrieval of a Flask route without blueprint prefix.
@@ -143,7 +141,7 @@ def test_get_flask_route_without_blueprint(
     :param mock_flask_service: The mocked Flask API service.
     :type mock_flask_service: FlaskApiService
     :param sample_route: The expected route.
-    :type sample_route: FlaskRouteAggregate
+    :type sample_route: FlaskRoute
     '''
 
     # Execute the event via DomainEvent.handle.

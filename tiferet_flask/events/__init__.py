@@ -1,3 +1,5 @@
+"""Flask domain events."""
+
 # *** imports
 
 # ** app
