@@ -4,7 +4,6 @@
 # Export the main application context and related modules.
 # Use a try-except block to avoid import errors on build systems.
 try:
-    from .domain import *
     from .contexts import *
     from .builders import FlaskAppBuilder, FlaskApp
 except Exception as e:
