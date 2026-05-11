@@ -3,13 +3,14 @@
 # ** infra
 import pytest
 from unittest import mock
+from flask import Blueprint
 from tiferet.assets.exceptions import TiferetAPIError
 from tiferet.contexts.error import ErrorContext
 from tiferet.contexts.feature import FeatureContext
 from tiferet.contexts.logging import LoggingContext
 from tiferet import TiferetError
 from tiferet.events import DomainEvent
-from tiferet_openapi import ApiRoute
+from tiferet_openapi import ApiRoute, ApiRouter
 
 # ** app
 from ..flask import FlaskApiContext
@@ -153,3 +154,98 @@ def test_flask_api_context_handle_response(flask_api_context: FlaskApiContext):
     flask_api_context.get_route_handler.assert_called_once_with(
         endpoint='test_feature'
     )
+
+# ** test: flask_api_context_generate_spec_single_router
+def test_flask_api_context_generate_spec_single_router(flask_api_context: FlaskApiContext):
+    '''
+    Test generate_spec with a single router containing multiple routes.
+    '''
+
+    # Set up the routers mock to return a single router.
+    sample_router = ApiRouter(
+        name='calc',
+        prefix='/calc',
+        routes=[
+            ApiRoute(id='add', endpoint='calc.add', path='/add', methods=['POST'], status_code=200),
+            ApiRoute(id='subtract', endpoint='calc.subtract', path='/subtract', methods=['POST'], status_code=200),
+        ],
+    )
+    flask_api_context.get_routers_handler = mock.Mock(return_value=[sample_router])
+
+    # Generate the spec.
+    spec = flask_api_context.generate_spec(title='Calc API', version='2.0.0', description='A calculator')
+
+    # Assert the spec structure.
+    assert spec['openapi'] == '3.0.3'
+    assert spec['info']['title'] == 'Calc API'
+    assert spec['info']['version'] == '2.0.0'
+    assert spec['info']['description'] == 'A calculator'
+    assert '/calc/add' in spec['paths']
+    assert '/calc/subtract' in spec['paths']
+    assert spec['paths']['/calc/add']['post']['operationId'] == 'calc.add'
+
+# ** test: flask_api_context_generate_spec_multi_router
+def test_flask_api_context_generate_spec_multi_router(flask_api_context: FlaskApiContext):
+    '''
+    Test generate_spec with multiple routers.
+    '''
+
+    # Set up the routers mock to return two routers.
+    routers = [
+        ApiRouter(
+            name='calc',
+            prefix='/calc',
+            routes=[ApiRoute(id='add', endpoint='calc.add', path='/add', methods=['POST'], status_code=200)],
+        ),
+        ApiRouter(
+            name='health',
+            prefix=None,
+            routes=[ApiRoute(id='ping', endpoint='health.ping', path='/ping', methods=['GET'], status_code=200)],
+        ),
+    ]
+    flask_api_context.get_routers_handler = mock.Mock(return_value=routers)
+
+    # Generate the spec.
+    spec = flask_api_context.generate_spec()
+
+    # Assert paths from both routers are present.
+    assert '/calc/add' in spec['paths']
+    assert '/ping' in spec['paths']
+    assert spec['info']['title'] == 'API'
+
+# ** test: flask_api_context_create_swagger_blueprint
+def test_flask_api_context_create_swagger_blueprint(flask_api_context: FlaskApiContext):
+    '''
+    Test create_swagger_blueprint returns a Flask Blueprint with correct routes.
+    '''
+
+    # Set up routers mock.
+    flask_api_context.get_routers_handler = mock.Mock(return_value=[])
+
+    # Create the swagger blueprint.
+    swagger_bp = flask_api_context.create_swagger_blueprint(title='Test API')
+
+    # Assert it is a Blueprint with the expected name and prefix.
+    assert isinstance(swagger_bp, Blueprint)
+    assert swagger_bp.name == 'swagger'
+    assert swagger_bp.url_prefix == '/docs'
+
+    # Assert the blueprint has the expected deferred view functions.
+    rules = [rule for rule in swagger_bp.deferred_functions]
+    assert len(rules) == 2  # openapi_json and swagger_ui
+
+# ** test: flask_api_context_create_docs_handler
+def test_flask_api_context_create_docs_handler(flask_api_context: FlaskApiContext):
+    '''
+    Test create_docs_handler delegates to create_swagger_blueprint.
+    '''
+
+    # Set up routers mock.
+    flask_api_context.get_routers_handler = mock.Mock(return_value=[])
+
+    # Call create_docs_handler.
+    result = flask_api_context.create_docs_handler(title='Docs API')
+
+    # Assert it returns a Blueprint.
+    assert isinstance(result, Blueprint)
+    assert result.name == 'swagger'
