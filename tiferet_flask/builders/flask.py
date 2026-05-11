@@ -68,7 +68,7 @@ class FlaskAppBuilder(AppBuilder):
         return blueprint
 
     # * method: build_flask_app
-    def build_flask_app(self, interface_id: str, view_func: Callable, **kwargs) -> Flask:
+    def build_flask_app(self, interface_id: str, view_func: Callable, swagger: bool = False, **kwargs) -> Flask:
         '''
         Build a complete Flask application with CORS and blueprints.
 
@@ -76,6 +76,8 @@ class FlaskAppBuilder(AppBuilder):
         :type interface_id: str
         :param view_func: The view function to handle requests.
         :type view_func: Callable
+        :param swagger: Whether to register a Swagger UI blueprint.
+        :type swagger: bool
         :param kwargs: Additional keyword arguments.
         :type kwargs: dict
         :return: A configured Flask application instance.
@@ -94,6 +96,11 @@ class FlaskAppBuilder(AppBuilder):
         for router in routers:
             blueprint = self.build_blueprint(router, view_func=view_func, **kwargs)
             flask_app.register_blueprint(blueprint)
+
+        # Optionally register the swagger blueprint.
+        if swagger and hasattr(interface_context, 'create_swagger_blueprint'):
+            swagger_bp = interface_context.create_swagger_blueprint(**kwargs)
+            flask_app.register_blueprint(swagger_bp)
 
         # Return the assembled Flask application.
         return flask_app
