@@ -1,0 +1,11 @@
+errors:
+  invalid_input:
+    name: Invalid Numeric Input
+    message:
+      - lang: en_US
+        text: 'Value {} must be a number'
+  division_by_zero:
+    name: Division By Zero
+    message:
+      - lang: en_US
+        text: 'Cannot divide by zero'

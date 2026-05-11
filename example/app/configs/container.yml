@@ -1,0 +1,16 @@
+attrs:
+  add_number_event:
+    module_path: app.events.calc
+    class_name: AddNumber
+  subtract_number_event:
+    module_path: app.events.calc
+    class_name: SubtractNumber
+  multiply_number_event:
+    module_path: app.events.calc
+    class_name: MultiplyNumber
+  divide_number_event:
+    module_path: app.events.calc
+    class_name: DivideNumber
+  exponentiate_number_event:
+    module_path: app.events.calc
+    class_name: ExponentiateNumber
