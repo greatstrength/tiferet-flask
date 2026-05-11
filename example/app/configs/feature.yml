@@ -1,0 +1,34 @@
+features:
+  calc:
+    add:
+      name: 'Add Number'
+      description: 'Adds one number to another'
+      commands:
+        - attribute_id: add_number_event
+          name: Add `a` and `b`
+    subtract:
+      name: 'Subtract Number'
+      description: 'Subtracts one number from another'
+      commands:
+        - attribute_id: subtract_number_event
+          name: Subtract `b` from `a`
+    multiply:
+      name: 'Multiply Number'
+      description: 'Multiplies one number by another'
+      commands:
+        - attribute_id: multiply_number_event
+          name: Multiply `a` and `b`
+    divide:
+      name: 'Divide Number'
+      description: 'Divides one number by another'
+      commands:
+        - attribute_id: divide_number_event
+          name: Divide `a` by `b`
+    sqrt:
+      name: 'Square Root'
+      description: 'Calculates the square root of a number'
+      commands:
+        - attribute_id: exponentiate_number_event
+          name: Calculate square root of `a`
+          params:
+            b: '0.5'

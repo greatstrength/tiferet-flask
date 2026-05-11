@@ -1,0 +1,28 @@
+openapi:
+  routers:
+    calc:
+      prefix: /calc
+      routes:
+        add:
+          path: /add
+          methods: [POST, GET]
+          status_code: 200
+        subtract:
+          path: /subtract
+          methods: [POST, GET]
+          status_code: 200
+        multiply:
+          path: /multiply
+          methods: [POST, GET]
+          status_code: 200
+        divide:
+          path: /divide
+          methods: [POST, GET]
+          status_code: 200
+        sqrt:
+          path: /sqrt
+          methods: [POST, GET]
+          status_code: 200
+  errors:
+    DIVISION_BY_ZERO: 400
+    INVALID_INPUT: 422
