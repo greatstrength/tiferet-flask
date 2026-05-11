@@ -1,4 +1,4 @@
-"""Flask API Builder."""
+'''Flask API Builder.'''
 
 # *** imports
 
@@ -9,10 +9,8 @@ from typing import Callable, List
 from flask import Flask, Blueprint
 from flask_cors import CORS
 from tiferet.builders import AppBuilder
+from tiferet_openapi import ApiRouter
 
-# ** app
-from ..domain import FlaskBlueprint
-from ..contexts import FlaskApiContext
 
 # *** builders
 
@@ -22,26 +20,26 @@ class FlaskAppBuilder(AppBuilder):
     Specialized application builder for Flask applications.
     '''
 
-    # * method: get_blueprints
-    def get_blueprints(self) -> List[FlaskBlueprint]:
+    # * method: get_routers
+    def get_routers(self) -> List[ApiRouter]:
         '''
-        Resolve and execute the get_blueprints event from the service provider.
+        Resolve and execute the get_routers event from the service provider.
 
-        :return: A list of FlaskBlueprint domain objects.
-        :rtype: List[FlaskBlueprint]
+        :return: A list of ApiRouter domain objects.
+        :rtype: List[ApiRouter]
         '''
 
-        # Resolve the get_blueprints event and execute it.
-        get_blueprints_evt = self.service_provider.get_service('get_blueprints_evt')
-        return get_blueprints_evt.execute()
+        # Resolve the get_routers event and execute it.
+        get_routers_evt = self.service_provider.get_service('get_routers_evt')
+        return get_routers_evt.execute()
 
     # * method: build_blueprint
-    def build_blueprint(self, flask_blueprint: FlaskBlueprint, view_func: Callable, **kwargs) -> Blueprint:
+    def build_blueprint(self, router: ApiRouter, view_func: Callable, **kwargs) -> Blueprint:
         '''
-        Build a Flask Blueprint from a FlaskBlueprint domain object.
+        Build a Flask Blueprint from an ApiRouter domain object.
 
-        :param flask_blueprint: The FlaskBlueprint domain object.
-        :type flask_blueprint: FlaskBlueprint
+        :param router: The ApiRouter domain object.
+        :type router: ApiRouter
         :param view_func: The view function to handle requests.
         :type view_func: Callable
         :param kwargs: Additional keyword arguments.
@@ -52,15 +50,15 @@ class FlaskAppBuilder(AppBuilder):
 
         # Create the Flask Blueprint.
         blueprint = Blueprint(
-            flask_blueprint.name,
+            router.name,
             __name__,
-            url_prefix=flask_blueprint.url_prefix,
+            url_prefix=router.prefix,
         )
 
-        # Add routes from the FlaskBlueprint domain object.
-        for route in flask_blueprint.routes:
+        # Add routes from the ApiRouter domain object.
+        for route in router.routes:
             blueprint.add_url_rule(
-                route.rule,
+                route.path,
                 route.id,
                 methods=route.methods,
                 view_func=view_func,
@@ -91,10 +89,10 @@ class FlaskAppBuilder(AppBuilder):
         flask_app = Flask(__name__)
         CORS(flask_app)
 
-        # Load and register blueprints.
-        blueprints = self.get_blueprints()
-        for bp in blueprints:
-            blueprint = self.build_blueprint(bp, view_func=view_func, **kwargs)
+        # Load and register routers as blueprints.
+        routers = self.get_routers()
+        for router in routers:
+            blueprint = self.build_blueprint(router, view_func=view_func, **kwargs)
             flask_app.register_blueprint(blueprint)
 
         # Return the assembled Flask application.

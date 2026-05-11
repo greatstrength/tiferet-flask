@@ -9,32 +9,32 @@ from tiferet.contexts.feature import FeatureContext
 from tiferet.contexts.logging import LoggingContext
 from tiferet import TiferetError
 from tiferet.events import DomainEvent
+from tiferet_openapi import ApiRoute
 
 # ** app
 from ..flask import FlaskApiContext
 from ..request import FlaskRequestContext
-from ...domain import FlaskRoute
 
 # *** fixtures
 
 # ** fixture: sample_route
 @pytest.fixture
-def sample_route() -> FlaskRoute:
+def sample_route() -> ApiRoute:
     '''
-    Fixture to provide a sample FlaskRoute.
+    Fixture to provide a sample ApiRoute.
     '''
 
-    return FlaskRoute(
+    return ApiRoute(
         id='sample_route',
-        endpoint='sample_blueprint.sample_route',
-        rule='/sample',
+        endpoint='sample_router.sample_route',
+        path='/sample',
         methods=['GET', 'POST'],
         status_code=269,
     )
 
 # ** fixture: flask_api_context
 @pytest.fixture
-def flask_api_context(sample_route: FlaskRoute) -> FlaskApiContext:
+def flask_api_context(sample_route: ApiRoute) -> FlaskApiContext:
     '''
     Fixture to provide a FlaskApiContext instance for testing.
     '''
@@ -50,6 +50,8 @@ def flask_api_context(sample_route: FlaskRoute) -> FlaskApiContext:
     mock_get_route_evt.execute = mock.Mock(return_value=sample_route)
     mock_get_status_code_evt = mock.Mock(spec=DomainEvent)
     mock_get_status_code_evt.execute = mock.Mock(return_value=420)
+    mock_get_routers_evt = mock.Mock(spec=DomainEvent)
+    mock_get_routers_evt.execute = mock.Mock(return_value=[])
 
     # Create and return the FlaskApiContext instance.
     return FlaskApiContext(
@@ -59,6 +61,7 @@ def flask_api_context(sample_route: FlaskRoute) -> FlaskApiContext:
         logging=mock_logging,
         get_route_evt=mock_get_route_evt,
         get_status_code_evt=mock_get_status_code_evt,
+        get_routers_evt=mock_get_routers_evt,
     )
 
 # *** tests
