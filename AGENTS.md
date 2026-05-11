@@ -1,14 +1,14 @@
-# AGENTS.md — Tiferet Flask (v0.3.0)
+# AGENTS.md — Tiferet Flask (v0.4.0)
 
 ## Project Overview
 
-**Tiferet Flask** is an extension of the Tiferet framework for building Flask-based APIs using Domain-Driven Design (DDD). It provides `FlaskAppBuilder`, `FlaskApiContext`, `FlaskRequestContext`, Pydantic v2 domain objects, domain events, and a YAML-backed repository for Flask configuration.
+**Tiferet Flask** is a Flask extension for the Tiferet framework, providing Flask-specific API building and Swagger UI support on top of the shared [tiferet-openapi](https://github.com/greatstrength/tiferet-openapi) abstraction layer. All domain objects, service interfaces, domain events, mappers, and repositories are provided by `tiferet-openapi`.
 
 - **Repository:** https://github.com/greatstrength/tiferet-flask
 - **Branch:** `main`
 - **Python:** ≥ 3.10
-- **Version:** `0.3.0`
-- **Dependencies:** `tiferet >= 2.0.0b1`, `flask >= 3.1.2`, `flask_cors >= 6.0.1`
+- **Version:** `0.4.0`
+- **Dependencies:** `tiferet >= 2.0.0b1`, `tiferet-openapi >= 0.1.1`, `flask >= 3.1.2`, `flask_cors >= 6.0.1`
 
 ## Architecture
 
@@ -16,33 +16,51 @@
 
 ```
 tiferet_flask/
-├── __init__.py          — Version and public exports (FlaskAppBuilder, FlaskApp)
-├── builders/            — FlaskAppBuilder (AppBuilder) — primary app entry point
-├── domain/              — FlaskRoute, FlaskBlueprint (DomainObject, Pydantic v2)
-├── interfaces/          — FlaskApiService (Service)
-├── mappers/             — Aggregates (_ROLES ClassVar) and TransferObjects for YAML round-trip
-├── repos/               — FlaskYamlRepository (YamlLoader-backed FlaskApiService)
-├── events/              — GetFlaskBlueprints, GetFlaskRoute, GetFlaskStatusCode (DomainEvent)
-└── contexts/            — FlaskApiContext (AppInterfaceContext), FlaskRequestContext (RequestContext)
+├── __init__.py          — Version (0.4.0) and public exports
+├── builders/            — FlaskAppBuilder (AppBuilder) with swagger support
+└── contexts/            — FlaskApiContext (OpenApiContext), FlaskRequestContext (alias)
 ```
+
+All domain, interface, event, mapper, and repository layers are provided by `tiferet-openapi`. No `domain/`, `interfaces/`, `events/`, `mappers/`, or `repos/` packages exist under `tiferet_flask/`.
 
 ### Key Concepts
 
-- **Domain Objects** (`domain/flask.py`): `FlaskRoute` and `FlaskBlueprint` — read-only Pydantic v2 domain models extending `DomainObject` with `Field` annotations. `FlaskRoute` includes an `endpoint` field (format: `blueprint_name.route_id`).
-- **Service Interface** (`interfaces/flask.py`): `FlaskApiService` — abstract contract for Flask API configuration access (`get_blueprints`, `get_route`, `get_status_code`). Returns domain objects, not aggregates.
-- **Mappers** (`mappers/flask.py`): `FlaskRouteAggregate`, `FlaskBlueprintAggregate` (mutable, direct Pydantic constructors), `FlaskRouteYamlObject`, `FlaskBlueprintYamlObject` (serialization via `_ROLES` ClassVar, `model_validate`, `@classmethod from_model`).
-- **Repository** (`repos/flask.py`): `FlaskYamlRepository` — `YamlLoader`-backed implementation of `FlaskApiService`. Uses `model_validate()` for YAML object construction. Constructor param: `flask_yaml_file`.
-- **Domain Events** (`events/flask.py`): `GetFlaskBlueprints`, `GetFlaskRoute`, `GetFlaskStatusCode` — receive `FlaskApiService` via constructor injection. Return domain objects.
-- **Contexts** (`contexts/flask.py`): `FlaskApiContext` — receives `DomainEvent` instances (`get_route_evt`, `get_status_code_evt`), wraps `.execute` internally. `handle_error` raises `TiferetAPIError` with `status_code`. `FlaskRequestContext` serializes via `BaseModel.model_dump()`.
-- **Builder** (`builders/flask.py`): `FlaskAppBuilder` — extends `tiferet.builders.AppBuilder`. Primary entry point for constructing Flask applications. Resolves `get_blueprints_evt` from service provider. Exported as `FlaskApp` alias.
+- **FlaskAppBuilder** (`builders/flask.py`): Extends `tiferet.builders.AppBuilder`. Consumes `ApiRouter`/`ApiRoute` from `tiferet_openapi`. Methods: `get_routers()`, `build_blueprint(router, view_func)`, `build_flask_app(interface_id, view_func, swagger=False)`, `run()`. Exported as `FlaskApp` alias.
+- **FlaskApiContext** (`contexts/flask.py`): Thin subclass of `tiferet_openapi.OpenApiContext`. Inherits `parse_request()`, `handle_error()`, `handle_response()`, `generate_spec()`, `get_routers_handler`. Adds `create_swagger_blueprint(title, version, description)` and overrides `create_docs_handler()` to delegate to it.
+- **FlaskRequestContext** (`contexts/request.py`): Alias for `tiferet_openapi.OpenApiRequestContext`. Provides Pydantic `BaseModel.model_dump()` serialization for responses.
+
+### Domain Types (from tiferet-openapi)
+
+- `ApiRoute` — route with `id`, `endpoint`, `path`, `methods`, `status_code`.
+- `ApiRouter` — router with `name`, `prefix`, `routes`.
+- `OpenApiService` — service interface for route/router/status code access.
+- `GetRouters`, `GetRoute`, `GetStatusCode` — domain events.
+- `OpenApiYamlRepository` — YAML-backed service implementation.
 
 ### Runtime Flow
 
-1. `FlaskAppBuilder()` (or `FlaskApp()`) loads settings and service provider.
-2. `builder.run(interface_id, view_func)` loads the interface, assembles blueprints, and returns a Flask app.
-3. `FlaskApiContext` is instantiated with `DomainEvent` instances for route and status code lookup.
-4. On request, `view_func` calls `context.run()` which parses the request, executes the feature, and returns a response with status code.
-5. `handle_error` raises `TiferetAPIError` with `status_code` attribute for error responses.
+1. `FlaskAppBuilder()` loads settings and service provider.
+2. `builder.run(interface_id, view_func, swagger=True)` loads the interface, assembles Flask Blueprints from `ApiRouter` objects, optionally registers the Swagger UI blueprint, and returns a Flask app.
+3. `FlaskApiContext` (via `OpenApiContext`) handles request parsing, feature execution, error handling with status codes, and response formatting.
+4. On request, `view_func` calls `context.run()` → parses request → executes feature → returns `(response, status_code)`.
+
+### YAML Configuration
+
+Uses the `openapi:` root key (not `flask:`):
+
+```yaml
+openapi:
+  routers:
+    calc:
+      prefix: /calc
+      routes:
+        add:
+          path: /add
+          methods: [POST, GET]
+          status_code: 200
+  errors:
+    DIVISION_BY_ZERO: 400
+```
 
 ## Structured Code Style
 
@@ -51,33 +69,24 @@ All code follows tiferet v2 artifact comment conventions (`# ***`, `# **`, `# *`
 ## Testing
 
 - **Framework:** `pytest`
-- **Test location:** Co-located in `<package>/tests/` directories.
+- **Test location:** Co-located in `contexts/tests/`.
 - **Run tests:** `pytest tiferet_flask/ -v`
 - **Patterns:**
-  - Domain/mapper tests use direct Pydantic constructors.
-  - Event tests use `DomainEvent.handle()` with mocked `FlaskApiService`.
-  - Repo tests are integration tests using `tmp_path` with real YAML files.
-  - Context tests use `mock.Mock(spec=DomainEvent)` for event dependencies.
+  - Context tests use `mock.Mock(spec=DomainEvent)` for event dependencies and `ApiRoute`/`ApiRouter` from `tiferet_openapi`.
+  - Swagger tests verify `generate_spec()` output structure and `create_swagger_blueprint()` returns a Flask Blueprint.
 
 ## Key Files
 
 - `tiferet_flask/__init__.py` — Version and public exports
 - `tiferet_flask/builders/flask.py` — FlaskAppBuilder
-- `tiferet_flask/domain/flask.py` — FlaskRoute, FlaskBlueprint domain objects
-- `tiferet_flask/interfaces/flask.py` — FlaskApiService interface
-- `tiferet_flask/mappers/flask.py` — Aggregates and TransferObjects
-- `tiferet_flask/repos/flask.py` — FlaskYamlRepository
-- `tiferet_flask/events/flask.py` — Domain events
-- `tiferet_flask/contexts/flask.py` — FlaskApiContext
-- `tiferet_flask/contexts/request.py` — FlaskRequestContext
+- `tiferet_flask/contexts/flask.py` — FlaskApiContext (OpenApiContext subclass with Swagger)
+- `tiferet_flask/contexts/request.py` — FlaskRequestContext (alias for OpenApiRequestContext)
 
-## Migration from v0.2.x
+## Migration from v0.3.x
 
-- **Domain:** Schematics type descriptors → Pydantic v2 `Field` annotations. Added `endpoint` field to `FlaskRoute`.
-- **Mappers:** `Aggregate.new()` → direct Pydantic constructor. `class Options` → `_ROLES` ClassVar. `from_data()` → `model_validate()`. `from_model` → `@classmethod`.
-- **Interfaces:** Return types changed from aggregates to domain objects. Removed `exists`, `save`, `delete`.
-- **Events:** Return types changed from aggregates to domain objects. Imports from `..domain` instead of `..mappers`.
-- **Repository:** `Yaml` shorthand → `YamlLoader` composition. `flask_config_file` → `flask_yaml_file`. Removed `exists`, `save`, `delete`.
-- **Contexts:** `FlaskApiContext` accepts `DomainEvent` instances (not callables). Removed `build_blueprint`, `build_flask_app`, `get_blueprints_handler`, `flask_app`. `handle_error` raises `TiferetAPIError` (not tuple). `FlaskRequestContext` uses `BaseModel.model_dump()`.
-- **Builders:** New `FlaskAppBuilder` extending `AppBuilder`. Primary entry point for app construction.
-- **Dependency:** `tiferet>=2.0.0a8` → `tiferet>=2.0.0b1`.
+- **Deleted packages:** `domain/`, `interfaces/`, `events/`, `mappers/`, `repos/` — all replaced by `tiferet-openapi>=0.1.1`.
+- **Contexts:** `FlaskApiContext` now extends `OpenApiContext` (not `AppInterfaceContext`). Constructor requires `get_routers_evt` in addition to `get_route_evt` and `get_status_code_evt`. `FlaskRequestContext` is now an alias for `OpenApiRequestContext`.
+- **Builders:** `get_blueprints()` → `get_routers()`. `build_blueprint()` accepts `ApiRouter` (not `FlaskBlueprint`). `build_flask_app()` accepts `swagger=True`.
+- **Configuration:** `flask:` root key → `openapi:` root key. `blueprints` → `routers`. `url_prefix` → `prefix`. `rule` → `path`. `flask_config_file` → `openapi_yaml_file`.
+- **Imports:** Domain types (`FlaskRoute`, `FlaskBlueprint`, etc.) no longer exported from `tiferet_flask`. Import `ApiRoute`, `ApiRouter`, etc. from `tiferet_openapi`.
+- **Dependency:** Added `tiferet-openapi>=0.1.1`.
