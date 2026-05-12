@@ -5,7 +5,7 @@
 # Use a try-except block to avoid import errors on build systems.
 try:
     from .contexts import *
-    from .builders import FlaskAppBuilder, FlaskApp
+    from .blueprints import build_flask_app, build_flask_app as FlaskApp
 except Exception as e:
     import os, sys
     # Only print warning if TIFERET_SILENT_IMPORTS is not set to a truthy value
