@@ -5,7 +5,7 @@
 Tiferet Flask extends the [Tiferet](https://github.com/greatstrength/tiferet) Python framework to build Flask-based APIs using Domain-Driven Design (DDD). It uses [tiferet-openapi](https://github.com/greatstrength/tiferet-openapi) as its domain backbone, providing a thin Flask integration layer on top of the shared OpenAPI abstraction.
 
 **Key components:**
-- `FlaskAppBuilder` — assembles a Flask app from `ApiRouter`/`ApiRoute` domain objects.
+- `build_flask_app` / `FlaskApp` — assembles a Flask app from `ApiRouter`/`ApiRoute` domain objects using blueprint functions.
 - `FlaskApiContext` — extends `OpenApiContext` with Swagger UI support.
 - `FlaskRequestContext` — alias for `OpenApiRequestContext` with Pydantic serialization.
 
@@ -21,6 +21,8 @@ Tiferet Flask extends the [Tiferet](https://github.com/greatstrength/tiferet) Py
 ```bash
 pip install tiferet-flask
 ```
+
+This installs `tiferet-openapi` (which transitively provides `tiferet`) along with Flask and Flask-CORS.
 
 ### Project Structure
 
@@ -105,10 +107,7 @@ openapi:
 ### Entry Point (`calc_flask_api.py`)
 
 ```python
-from tiferet_flask import FlaskAppBuilder
-
-# Create the builder.
-builder = FlaskAppBuilder()
+from tiferet_flask import FlaskApp
 
 # Define the view function.
 def view_func(**kwargs):
@@ -127,10 +126,7 @@ def view_func(**kwargs):
     return jsonify(response), status_code
 
 # Build the Flask app with Swagger UI enabled.
-flask_app = builder.run('calc_flask_api', view_func, swagger=True)
-
-# Access the context for the view function closure.
-context = builder.load_interface('calc_flask_api')
+flask_app = FlaskApp('calc_flask_api', view_func, swagger=True)
 
 if __name__ == '__main__':
     flask_app.run(host='127.0.0.1', port=5000, debug=True)
@@ -157,22 +153,29 @@ curl -X POST http://127.0.0.1:5000/calc/divide \
 
 ### Swagger UI
 
-When `swagger=True` is passed to `builder.run()`, Swagger UI is available at:
+When `swagger=True` is passed to `FlaskApp()`, Swagger UI is available at:
 - **Swagger UI:** `http://127.0.0.1:5000/docs`
 - **OpenAPI spec:** `http://127.0.0.1:5000/docs/openapi.json`
 
 ## Architecture
 
-Tiferet Flask v0.4.0 delegates all domain, interface, event, mapper, and repository concerns to `tiferet-openapi`. Only two packages remain under `tiferet_flask/`:
+Tiferet Flask v0.5.0 delegates all domain, interface, event, mapper, and repository concerns to `tiferet-openapi`. Only two packages remain under `tiferet_flask/`:
 
-- **`builders/`** — `FlaskAppBuilder` consumes `ApiRouter`/`ApiRoute` from tiferet-openapi, maps them to Flask Blueprints, and optionally registers a Swagger UI blueprint.
+- **`blueprints/`** — Stateless blueprint functions (`build_flask_app`, `build_blueprint`, `get_routers`, `run`) that consume `ApiRouter`/`ApiRoute` from tiferet-openapi, map them to Flask Blueprints, and optionally register a Swagger UI blueprint. Exported as `FlaskApp` alias.
 - **`contexts/`** — `FlaskApiContext` is a thin subclass of `OpenApiContext` that adds `create_swagger_blueprint()`. `FlaskRequestContext` is an alias for `OpenApiRequestContext`.
 
 For domain-level documentation (domain objects, events, mappers, repositories), see [tiferet-openapi](https://github.com/greatstrength/tiferet-openapi).
 
+## Migration from v0.4.x
+
+- **Builders → Blueprints:** The `FlaskAppBuilder` class has been replaced by stateless blueprint functions. `FlaskAppBuilder()` → `build_flask_app()` / `FlaskApp()`. No more class instantiation — call the function directly.
+- **Imports:** `from tiferet_flask import FlaskAppBuilder` → `from tiferet_flask import FlaskApp` (or `build_flask_app`).
+- **Usage:** `builder = FlaskAppBuilder(); builder.run(...)` → `flask_app = FlaskApp(interface_id, view_func, swagger=True)`.
+- **Dependencies:** The direct `tiferet>=2.0.0b1` dependency has been removed. Tiferet is now provided transitively through `tiferet-openapi>=0.1.3`.
+
 ## Example
 
-See the [`example/`](example/) directory for a complete calculator Flask API demonstrating the v0.4.0 architecture with Swagger support.
+See the [`example/`](example/) directory for a complete calculator Flask API demonstrating the v0.5.0 architecture with Swagger support.
 
 ## License
 
