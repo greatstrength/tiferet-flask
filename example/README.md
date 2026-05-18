@@ -1,6 +1,6 @@
 # Calculator Flask API Example
 
-A self-contained calculator API demonstrating the Tiferet Flask v0.4.0 architecture with Swagger UI support.
+A self-contained calculator API demonstrating the Tiferet Flask v0.5.0 architecture with Swagger UI support.
 
 ## Prerequisites
 

@@ -3,13 +3,12 @@
 # ** infra
 import pytest
 from unittest import mock
-from flask import Blueprint
+from flask import Flask, Blueprint
 from tiferet.events import DomainEvent
-from tiferet.di import ServiceProvider
 from tiferet_openapi import ApiRoute, ApiRouter
 
 # ** app
-from ..flask import get_routers, build_blueprint
+from ..flask import get_routers, build_blueprint, build_flask_app
 
 
 # *** fixtures
@@ -69,25 +68,25 @@ def mock_view_func() -> mock.Mock:
     Fixture to provide a mock view function.
     '''
 
-    return mock.Mock()
+    # Create a mock with required_methods set for Flask add_url_rule compatibility.
+    view_func = mock.Mock()
+    view_func.required_methods = set()
+
+    return view_func
 
 
-# ** fixture: mock_service_provider
+# ** fixture: mock_interface_context
 @pytest.fixture
-def mock_service_provider(sample_router: ApiRouter) -> mock.Mock:
+def mock_interface_context(sample_router: ApiRouter) -> mock.Mock:
     '''
-    Fixture to provide a mock ServiceProvider with get_routers_evt.
+    Fixture to provide a mock interface context with a get_routers_handler.
     '''
 
-    # Create a mock get_routers event.
-    mock_get_routers_evt = mock.Mock(spec=DomainEvent)
-    mock_get_routers_evt.execute = mock.Mock(return_value=[sample_router])
+    # Create the mock interface context.
+    context = mock.Mock()
+    context.get_routers_handler = mock.Mock(return_value=[sample_router])
 
-    # Create the mock service provider.
-    provider = mock.Mock(spec=ServiceProvider)
-    provider.get_service = mock.Mock(return_value=mock_get_routers_evt)
-
-    return provider
+    return context
 
 
 # *** tests
@@ -151,17 +150,143 @@ def test_build_blueprint_no_prefix(mock_view_func: mock.Mock):
 
 
 # ** test: get_routers
-def test_get_routers(mock_service_provider: mock.Mock, sample_router: ApiRouter):
+def test_get_routers(mock_interface_context: mock.Mock, sample_router: ApiRouter):
     '''
-    Test get_routers resolves and executes the get_routers event.
+    Test get_routers executes the get_routers_handler on the interface context.
     '''
 
     # Get the routers.
-    routers = get_routers(mock_service_provider)
+    routers = get_routers(mock_interface_context)
 
-    # Assert the service provider was called correctly.
-    mock_service_provider.get_service.assert_called_once_with('get_routers_evt')
+    # Assert the handler was called.
+    mock_interface_context.get_routers_handler.assert_called_once()
 
     # Assert the result contains the expected router.
     assert len(routers) == 1
     assert routers[0] is sample_router
+
+
+# ** test: get_routers_empty
+def test_get_routers_empty():
+    '''
+    Test get_routers returns an empty list when no routers are configured.
+    '''
+
+    # Create a context with no routers.
+    context = mock.Mock()
+    context.get_routers_handler = mock.Mock(return_value=[])
+
+    # Get the routers.
+    routers = get_routers(context)
+
+    # Assert the result is empty.
+    assert routers == []
+
+
+# ** test: build_flask_app_registers_blueprints
+def test_build_flask_app_registers_blueprints(sample_router: ApiRouter, mock_view_func: mock.Mock):
+    '''
+    Test build_flask_app creates a Flask app with registered blueprints.
+    '''
+
+    # Mock resolve_interface and realize_interface.
+    mock_app_interface = mock.Mock()
+    mock_context = mock.Mock()
+    mock_context.get_routers_handler = mock.Mock(return_value=[sample_router])
+
+    with mock.patch('tiferet_flask.blueprints.flask.resolve_interface', return_value=(mock_app_interface, [])) as mock_resolve, \
+         mock.patch('tiferet_flask.blueprints.flask.realize_interface', return_value=mock_context) as mock_realize:
+
+        # Build the Flask app.
+        flask_app = build_flask_app('test_interface', mock_view_func, app_yaml_file='app.yml')
+
+    # Assert a Flask app was returned.
+    assert isinstance(flask_app, Flask)
+
+    # Assert resolve_interface was called with correct params.
+    mock_resolve.assert_called_once_with('test_interface', app_yaml_file='app.yml')
+
+    # Assert realize_interface was called with the resolved interface.
+    mock_realize.assert_called_once_with(mock_app_interface, 'test_interface')
+
+    # Assert routers were loaded from the context.
+    mock_context.get_routers_handler.assert_called_once()
+
+
+# ** test: build_flask_app_with_swagger
+def test_build_flask_app_with_swagger(mock_view_func: mock.Mock):
+    '''
+    Test build_flask_app registers a Swagger blueprint when swagger=True.
+    '''
+
+    # Mock resolve_interface and realize_interface.
+    mock_app_interface = mock.Mock()
+    mock_swagger_bp = Blueprint('swagger', __name__, url_prefix='/docs')
+    mock_context = mock.Mock()
+    mock_context.get_routers_handler = mock.Mock(return_value=[])
+    mock_context.create_swagger_blueprint = mock.Mock(return_value=mock_swagger_bp)
+
+    with mock.patch('tiferet_flask.blueprints.flask.resolve_interface', return_value=(mock_app_interface, [])), \
+         mock.patch('tiferet_flask.blueprints.flask.realize_interface', return_value=mock_context):
+
+        # Build the Flask app with swagger enabled.
+        flask_app = build_flask_app('test_interface', mock_view_func, swagger=True, app_yaml_file='app.yml')
+
+    # Assert create_swagger_blueprint was called.
+    mock_context.create_swagger_blueprint.assert_called_once()
+
+    # Assert the swagger blueprint was registered.
+    assert 'swagger' in flask_app.blueprints
+
+
+# ** test: build_flask_app_without_swagger
+def test_build_flask_app_without_swagger(mock_view_func: mock.Mock):
+    '''
+    Test build_flask_app does not register Swagger when swagger=False.
+    '''
+
+    # Mock resolve_interface and realize_interface.
+    mock_app_interface = mock.Mock()
+    mock_context = mock.Mock()
+    mock_context.get_routers_handler = mock.Mock(return_value=[])
+    mock_context.create_swagger_blueprint = mock.Mock()
+
+    with mock.patch('tiferet_flask.blueprints.flask.resolve_interface', return_value=(mock_app_interface, [])), \
+         mock.patch('tiferet_flask.blueprints.flask.realize_interface', return_value=mock_context):
+
+        # Build the Flask app without swagger.
+        flask_app = build_flask_app('test_interface', mock_view_func, swagger=False, app_yaml_file='app.yml')
+
+    # Assert create_swagger_blueprint was NOT called.
+    mock_context.create_swagger_blueprint.assert_not_called()
+
+    # Assert no swagger blueprint was registered.
+    assert 'swagger' not in flask_app.blueprints
+
+
+# ** test: build_flask_app_does_not_leak_params_to_swagger
+def test_build_flask_app_does_not_leak_params_to_swagger(mock_view_func: mock.Mock):
+    '''
+    Test build_flask_app does not pass resolve_interface params to create_swagger_blueprint.
+    '''
+
+    # Mock resolve_interface and realize_interface.
+    mock_app_interface = mock.Mock()
+    mock_swagger_bp = Blueprint('swagger', __name__, url_prefix='/docs')
+    mock_context = mock.Mock()
+    mock_context.get_routers_handler = mock.Mock(return_value=[])
+    mock_context.create_swagger_blueprint = mock.Mock(return_value=mock_swagger_bp)
+
+    with mock.patch('tiferet_flask.blueprints.flask.resolve_interface', return_value=(mock_app_interface, [])), \
+         mock.patch('tiferet_flask.blueprints.flask.realize_interface', return_value=mock_context):
+
+        # Build the Flask app with extra parameters.
+        flask_app = build_flask_app(
+            'test_interface', mock_view_func,
+            swagger=True,
+            app_yaml_file='app.yml',
+            extra_param='should_not_leak',
+        )
+
+    # Assert create_swagger_blueprint was called with no arguments.
+    mock_context.create_swagger_blueprint.assert_called_once_with()

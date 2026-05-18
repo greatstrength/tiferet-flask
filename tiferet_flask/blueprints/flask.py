@@ -8,31 +8,28 @@ from typing import Callable, List
 # ** infra
 from flask import Flask, Blueprint
 from flask_cors import CORS
-from tiferet.di import ServiceProvider
 from tiferet_openapi import ApiRouter
 from tiferet.blueprints.main import (
     resolve_interface,
     realize_interface,
-    create_service_provider,
 )
 
 
 # *** blueprints
 
 # ** blueprint: get_routers
-def get_routers(service_provider: ServiceProvider) -> List[ApiRouter]:
+def get_routers(interface_context) -> List[ApiRouter]:
     '''
-    Resolve and execute the get_routers event from the service provider.
+    Execute the get_routers event from the interface context.
 
-    :param service_provider: The service provider to resolve events from.
-    :type service_provider: ServiceProvider
+    :param interface_context: The realized interface context with a get_routers_evt attribute.
+    :type interface_context: AppInterfaceContext
     :return: A list of ApiRouter domain objects.
     :rtype: List[ApiRouter]
     '''
 
-    # Resolve the get_routers event and execute it.
-    get_routers_evt = service_provider.get_service('get_routers_evt')
-    return get_routers_evt.execute()
+    # Execute the get_routers handler from the interface context.
+    return interface_context.get_routers_handler()
 
 
 # ** blueprint: build_blueprint
@@ -91,12 +88,7 @@ def build_flask_app(interface_id: str, view_func: Callable, swagger: bool = Fals
     '''
 
     # Resolve the interface definition.
-    app_interface, default_services = resolve_interface(interface_id, **parameters)
-
-    # Build a service provider seeded with default service dependencies.
-    service_provider = create_service_provider(
-        type_map={dep.service_id: dep.get_service_type() for dep in default_services},
-    )
+    app_interface, _ = resolve_interface(interface_id, **parameters)
 
     # Realize the app interface context.
     interface_context = realize_interface(app_interface, interface_id)
@@ -106,14 +98,14 @@ def build_flask_app(interface_id: str, view_func: Callable, swagger: bool = Fals
     CORS(flask_app)
 
     # Load and register routers as blueprints.
-    routers = get_routers(service_provider)
+    routers = get_routers(interface_context)
     for router in routers:
         blueprint = build_blueprint(router, view_func=view_func)
         flask_app.register_blueprint(blueprint)
 
     # Optionally register the swagger blueprint.
     if swagger and hasattr(interface_context, 'create_swagger_blueprint'):
-        swagger_bp = interface_context.create_swagger_blueprint(**parameters)
+        swagger_bp = interface_context.create_swagger_blueprint()
         flask_app.register_blueprint(swagger_bp)
 
     # Return the assembled Flask application.

@@ -3,7 +3,8 @@
 # *** imports
 
 # ** infra
-from tiferet_flask import FlaskAppBuilder
+from tiferet_flask import FlaskApp
+from tiferet.blueprints.main import resolve_interface, realize_interface
 
 
 # *** functions
@@ -43,14 +44,12 @@ def view_func(**kwargs):
 
 # *** exec
 
-# Create the builder.
-builder = FlaskAppBuilder()
-
 # Build the Flask app with Swagger UI enabled.
-flask_app = builder.run('calc_flask_api', view_func, swagger=True)
+flask_app = FlaskApp('calc_flask_api', view_func, swagger=True, app_yaml_file='app/configs/app.yml')
 
-# Access the context for the view function closure.
-context = builder.load_interface('calc_flask_api')
+# Load the interface context for the view function closure.
+app_interface, _ = resolve_interface('calc_flask_api', app_yaml_file='app/configs/app.yml')
+context = realize_interface(app_interface, 'calc_flask_api')
 
 # Run the Flask app if executed directly.
 if __name__ == '__main__':
