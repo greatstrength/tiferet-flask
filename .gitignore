@@ -205,3 +205,10 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Tiferet collab process
+#   Working copies of RFPs and TRDs stay local; the published GitHub issue
+#   body is the source of truth (tiferet docs/collab/process.md).
+.rfp/
+.trd/
+.milestones/
