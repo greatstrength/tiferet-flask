@@ -1,15 +1,26 @@
 # *** imports
 
+# ** core
+from unittest import mock
+
 # ** infra
 import pytest
-from unittest import mock
 from flask import Flask, Blueprint
-from tiferet.events import DomainEvent
-from tiferet_openapi import ApiRoute, ApiRouter
+from tiferet import use_tester
+from tiferet.blueprints import core
+from tiferet.contexts.cache import CacheContext
+from tiferet.domain import AppSession
+from tiferet_openapi import ApiRoute, ApiRouter, create_openapi_request_context
 
 # ** app
-from ..flask import get_routers, build_blueprint, build_flask_app
-
+from ..flask import (
+    build_blueprint,
+    build_flask_app,
+    build_flask_session_context,
+    get_routers,
+    run,
+)
+from ...contexts.flask import FlaskApiContext
 
 # *** fixtures
 
@@ -28,7 +39,6 @@ def sample_route() -> ApiRoute:
         status_code=200,
     )
 
-
 # ** fixture: sample_router
 @pytest.fixture
 def sample_router(sample_route: ApiRoute) -> ApiRouter:
@@ -41,7 +51,6 @@ def sample_router(sample_route: ApiRoute) -> ApiRouter:
         prefix='/calc',
         routes=[sample_route],
     )
-
 
 # ** fixture: multi_route_router
 @pytest.fixture
@@ -60,7 +69,6 @@ def multi_route_router() -> ApiRouter:
         ],
     )
 
-
 # ** fixture: mock_view_func
 @pytest.fixture
 def mock_view_func() -> mock.Mock:
@@ -74,219 +82,373 @@ def mock_view_func() -> mock.Mock:
 
     return view_func
 
-
-# ** fixture: mock_interface_context
+# ** fixture: app_session
 @pytest.fixture
-def mock_interface_context(sample_router: ApiRouter) -> mock.Mock:
+def app_session() -> AppSession:
     '''
-    Fixture to provide a mock interface context with a get_routers_handler.
-    '''
-
-    # Create the mock interface context.
-    context = mock.Mock()
-    context.get_routers_handler = mock.Mock(return_value=[sample_router])
-
-    return context
-
-
-# *** tests
-
-# ** test: build_blueprint_single_route
-def test_build_blueprint_single_route(sample_router: ApiRouter, mock_view_func: mock.Mock):
-    '''
-    Test build_blueprint creates a Blueprint with a single route.
+    Fixture to provide the AppSession resolved by build_flask_session_context.
     '''
 
-    # Build the blueprint.
-    bp = build_blueprint(sample_router, mock_view_func)
+    return AppSession(id='test_flask', name='Test Flask API')
 
-    # Assert it is a Blueprint with the expected name and prefix.
-    assert isinstance(bp, Blueprint)
-    assert bp.name == 'calc'
-    assert bp.url_prefix == '/calc'
-
-    # Assert the blueprint has one deferred function (the route).
-    assert len(bp.deferred_functions) == 1
-
-
-# ** test: build_blueprint_multiple_routes
-def test_build_blueprint_multiple_routes(multi_route_router: ApiRouter, mock_view_func: mock.Mock):
+# ** fixture: cache
+@pytest.fixture
+def cache() -> CacheContext:
     '''
-    Test build_blueprint creates a Blueprint with multiple routes.
+    Fixture to provide the bootstrap cache pre-seeded with framework defaults.
     '''
 
-    # Build the blueprint.
-    bp = build_blueprint(multi_route_router, mock_view_func)
+    return core.build_cache()
 
-    # Assert it is a Blueprint with the expected name.
-    assert isinstance(bp, Blueprint)
-    assert bp.name == 'calc'
+# *** testers
 
-    # Assert the blueprint has three deferred functions (one per route).
-    assert len(bp.deferred_functions) == 3
-
-
-# ** test: build_blueprint_no_prefix
-def test_build_blueprint_no_prefix(mock_view_func: mock.Mock):
+# ** tester: test_build_blueprint
+@use_tester(
+    type='generic',
+    target_cls=build_blueprint,
+)
+class TestBuildBlueprint:
     '''
-    Test build_blueprint handles a router with no prefix.
+    Generic tester for build_blueprint.
     '''
 
-    # Create a router with no prefix.
-    router = ApiRouter(
-        name='health',
-        prefix=None,
-        routes=[
-            ApiRoute(id='ping', endpoint='health.ping', path='/ping', methods=['GET'], status_code=200),
-        ],
-    )
+    # * test: single_route
+    def test_build_blueprint_single_route(
+            self,
+            session,
+            sample_router: ApiRouter,
+            mock_view_func: mock.Mock,
+        ) -> None:
+        '''
+        Verify build_blueprint creates a Blueprint with a single route.
+        '''
 
-    # Build the blueprint.
-    bp = build_blueprint(router, mock_view_func)
+        # Exercise build_blueprint with a single-route router.
+        result = session.given(router=sample_router, view_func=mock_view_func).run(target=build_blueprint)
 
-    # Assert prefix is None.
-    assert bp.name == 'health'
-    assert bp.url_prefix is None
+        # Assert it is a Blueprint with the expected name, prefix, and route count.
+        assert isinstance(result, Blueprint)
+        assert result.name == 'calc'
+        assert result.url_prefix == '/calc'
+        assert len(result.deferred_functions) == 1
 
+    # * test: multiple_routes
+    def test_build_blueprint_multiple_routes(
+            self,
+            session,
+            multi_route_router: ApiRouter,
+            mock_view_func: mock.Mock,
+        ) -> None:
+        '''
+        Verify build_blueprint creates a Blueprint with multiple routes.
+        '''
 
-# ** test: get_routers
-def test_get_routers(mock_interface_context: mock.Mock, sample_router: ApiRouter):
-    '''
-    Test get_routers executes the get_routers_handler on the interface context.
-    '''
+        # Exercise build_blueprint with a multi-route router.
+        result = session.given(router=multi_route_router, view_func=mock_view_func).run(target=build_blueprint)
 
-    # Get the routers.
-    routers = get_routers(mock_interface_context)
+        # Assert one deferred function per route.
+        assert isinstance(result, Blueprint)
+        assert result.name == 'calc'
+        assert len(result.deferred_functions) == 3
 
-    # Assert the handler was called.
-    mock_interface_context.get_routers_handler.assert_called_once()
+    # * test: no_prefix
+    def test_build_blueprint_no_prefix(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ) -> None:
+        '''
+        Verify build_blueprint handles a router with no prefix.
+        '''
 
-    # Assert the result contains the expected router.
-    assert len(routers) == 1
-    assert routers[0] is sample_router
-
-
-# ** test: get_routers_empty
-def test_get_routers_empty():
-    '''
-    Test get_routers returns an empty list when no routers are configured.
-    '''
-
-    # Create a context with no routers.
-    context = mock.Mock()
-    context.get_routers_handler = mock.Mock(return_value=[])
-
-    # Get the routers.
-    routers = get_routers(context)
-
-    # Assert the result is empty.
-    assert routers == []
-
-
-# ** test: build_flask_app_registers_blueprints
-def test_build_flask_app_registers_blueprints(sample_router: ApiRouter, mock_view_func: mock.Mock):
-    '''
-    Test build_flask_app creates a Flask app with registered blueprints.
-    '''
-
-    # Mock resolve_interface and realize_interface.
-    mock_app_interface = mock.Mock()
-    mock_context = mock.Mock()
-    mock_context.get_routers_handler = mock.Mock(return_value=[sample_router])
-
-    with mock.patch('tiferet_flask.blueprints.flask.resolve_interface', return_value=(mock_app_interface, [])) as mock_resolve, \
-         mock.patch('tiferet_flask.blueprints.flask.realize_interface', return_value=mock_context) as mock_realize:
-
-        # Build the Flask app.
-        flask_app = build_flask_app('test_interface', mock_view_func, app_yaml_file='app.yml')
-
-    # Assert a Flask app was returned.
-    assert isinstance(flask_app, Flask)
-
-    # Assert resolve_interface was called with correct params.
-    mock_resolve.assert_called_once_with('test_interface', app_yaml_file='app.yml')
-
-    # Assert realize_interface was called with the resolved interface.
-    mock_realize.assert_called_once_with(mock_app_interface, 'test_interface')
-
-    # Assert routers were loaded from the context.
-    mock_context.get_routers_handler.assert_called_once()
-
-
-# ** test: build_flask_app_with_swagger
-def test_build_flask_app_with_swagger(mock_view_func: mock.Mock):
-    '''
-    Test build_flask_app registers a Swagger blueprint when swagger=True.
-    '''
-
-    # Mock resolve_interface and realize_interface.
-    mock_app_interface = mock.Mock()
-    mock_swagger_bp = Blueprint('swagger', __name__, url_prefix='/docs')
-    mock_context = mock.Mock()
-    mock_context.get_routers_handler = mock.Mock(return_value=[])
-    mock_context.create_swagger_blueprint = mock.Mock(return_value=mock_swagger_bp)
-
-    with mock.patch('tiferet_flask.blueprints.flask.resolve_interface', return_value=(mock_app_interface, [])), \
-         mock.patch('tiferet_flask.blueprints.flask.realize_interface', return_value=mock_context):
-
-        # Build the Flask app with swagger enabled.
-        flask_app = build_flask_app('test_interface', mock_view_func, swagger=True, app_yaml_file='app.yml')
-
-    # Assert create_swagger_blueprint was called.
-    mock_context.create_swagger_blueprint.assert_called_once()
-
-    # Assert the swagger blueprint was registered.
-    assert 'swagger' in flask_app.blueprints
-
-
-# ** test: build_flask_app_without_swagger
-def test_build_flask_app_without_swagger(mock_view_func: mock.Mock):
-    '''
-    Test build_flask_app does not register Swagger when swagger=False.
-    '''
-
-    # Mock resolve_interface and realize_interface.
-    mock_app_interface = mock.Mock()
-    mock_context = mock.Mock()
-    mock_context.get_routers_handler = mock.Mock(return_value=[])
-    mock_context.create_swagger_blueprint = mock.Mock()
-
-    with mock.patch('tiferet_flask.blueprints.flask.resolve_interface', return_value=(mock_app_interface, [])), \
-         mock.patch('tiferet_flask.blueprints.flask.realize_interface', return_value=mock_context):
-
-        # Build the Flask app without swagger.
-        flask_app = build_flask_app('test_interface', mock_view_func, swagger=False, app_yaml_file='app.yml')
-
-    # Assert create_swagger_blueprint was NOT called.
-    mock_context.create_swagger_blueprint.assert_not_called()
-
-    # Assert no swagger blueprint was registered.
-    assert 'swagger' not in flask_app.blueprints
-
-
-# ** test: build_flask_app_does_not_leak_params_to_swagger
-def test_build_flask_app_does_not_leak_params_to_swagger(mock_view_func: mock.Mock):
-    '''
-    Test build_flask_app does not pass resolve_interface params to create_swagger_blueprint.
-    '''
-
-    # Mock resolve_interface and realize_interface.
-    mock_app_interface = mock.Mock()
-    mock_swagger_bp = Blueprint('swagger', __name__, url_prefix='/docs')
-    mock_context = mock.Mock()
-    mock_context.get_routers_handler = mock.Mock(return_value=[])
-    mock_context.create_swagger_blueprint = mock.Mock(return_value=mock_swagger_bp)
-
-    with mock.patch('tiferet_flask.blueprints.flask.resolve_interface', return_value=(mock_app_interface, [])), \
-         mock.patch('tiferet_flask.blueprints.flask.realize_interface', return_value=mock_context):
-
-        # Build the Flask app with extra parameters.
-        flask_app = build_flask_app(
-            'test_interface', mock_view_func,
-            swagger=True,
-            app_yaml_file='app.yml',
-            extra_param='should_not_leak',
+        # Build a router with no prefix.
+        router = ApiRouter(
+            name='health',
+            prefix=None,
+            routes=[
+                ApiRoute(id='ping', endpoint='health.ping', path='/ping', methods=['GET'], status_code=200),
+            ],
         )
 
-    # Assert create_swagger_blueprint was called with no arguments.
-    mock_context.create_swagger_blueprint.assert_called_once_with()
+        # Exercise build_blueprint with the no-prefix router.
+        result = session.given(router=router, view_func=mock_view_func).run(target=build_blueprint)
+
+        # Assert the prefix is None.
+        assert result.name == 'health'
+        assert result.url_prefix is None
+
+# ** tester: test_get_routers
+@use_tester(
+    type='generic',
+    target_cls=get_routers,
+)
+class TestGetRouters:
+    '''
+    Generic tester for get_routers.
+    '''
+
+    # * test: returns_configured_routers
+    def test_get_routers_returns_configured_routers(
+            self,
+            session,
+            sample_router: ApiRouter,
+        ) -> None:
+        '''
+        Verify get_routers calls get_routers() on the interface context, not
+        get_routers_handler().
+        '''
+
+        # Build a mock interface context exposing get_routers().
+        mock_context = mock.Mock()
+        mock_context.get_routers = mock.Mock(return_value=[sample_router])
+
+        # Exercise get_routers against the mock interface context.
+        result = session.given(interface_context=mock_context).run(target=get_routers)
+
+        # Assert the handler was called and the router list is returned.
+        mock_context.get_routers.assert_called_once_with()
+        assert result == [sample_router]
+
+    # * test: empty
+    def test_get_routers_empty(self, session) -> None:
+        '''
+        Verify get_routers returns an empty list when no routers are configured.
+        '''
+
+        # Build a mock interface context with no routers.
+        mock_context = mock.Mock()
+        mock_context.get_routers = mock.Mock(return_value=[])
+
+        # Exercise get_routers against the mock interface context.
+        result = session.given(interface_context=mock_context).run(target=get_routers)
+
+        # Assert the result is empty.
+        assert result == []
+
+# ** tester: test_build_flask_session_context
+@use_tester(
+    type='generic',
+    target_cls=build_flask_session_context,
+)
+class TestBuildFlaskSessionContext:
+    '''
+    Generic tester for build_flask_session_context.
+    '''
+
+    # * test: constructs_wired_flask_api_context
+    def test_build_flask_session_context_constructs_context(
+            self,
+            session,
+            app_session: AppSession,
+            cache: CacheContext,
+        ) -> None:
+        '''
+        Verify build_flask_session_context constructs a wired FlaskApiContext
+        with the default request/response handlers (RFP-001 Risk 4).
+        '''
+
+        # Exercise build_flask_session_context with cache and session only.
+        result = session.given(app_session=app_session, cache=cache).run(target=build_flask_session_context)
+
+        # Assert the constructed context, bound domain, and default handlers.
+        assert isinstance(result, FlaskApiContext)
+        assert result.domain is app_session
+        assert result._create_request is create_openapi_request_context
+        assert result._build_response is core.response_handler
+        assert callable(result._get_route)
+        assert callable(result._get_status_code)
+        assert callable(result._get_routers)
+
+    # * test: accepts_custom_request_handler
+    def test_build_flask_session_context_accepts_custom_request_handler(
+            self,
+            session,
+            app_session: AppSession,
+            cache: CacheContext,
+        ) -> None:
+        '''
+        Verify build_flask_session_context accepts a custom request handler.
+        '''
+
+        # Exercise build_flask_session_context with a custom request handler.
+        custom_handler = mock.Mock()
+        result = session.given(
+            app_session=app_session,
+            cache=cache,
+            create_request_handler=custom_handler,
+        ).run(target=build_flask_session_context)
+
+        # Assert the custom request handler is wired.
+        assert result._create_request is custom_handler
+
+# ** tester: test_build_flask_app
+@use_tester(
+    type='generic',
+    target_cls=build_flask_app,
+)
+class TestBuildFlaskApp:
+    '''
+    Generic tester for build_flask_app. Patches core.build_cache,
+    core.get_app_session, and build_flask_session_context directly on
+    tiferet_flask.blueprints.flask.
+    '''
+
+    # * test: registers_one_blueprint_per_router
+    def test_build_flask_app_registers_blueprints(
+            self,
+            session,
+            sample_router: ApiRouter,
+            mock_view_func: mock.Mock,
+        ) -> None:
+        '''
+        Verify build_flask_app registers one Flask blueprint per router.
+        '''
+
+        # Build a mock interface context exposing the sample router.
+        mock_context = mock.Mock()
+        mock_context.get_routers = mock.Mock(return_value=[sample_router])
+        mock_cache = mock.Mock()
+        mock_app_session = mock.Mock()
+
+        # Patch the three collaborators build_flask_app composes.
+        with mock.patch('tiferet_flask.blueprints.flask.core.build_cache', return_value=mock_cache), \
+             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock_app_session) as mock_get_app_session, \
+             mock.patch('tiferet_flask.blueprints.flask.build_flask_session_context', return_value=mock_context) as mock_build_session:
+
+            # Exercise build_flask_app.
+            result = session.given(interface_id='test_interface', view_func=mock_view_func).run(target=build_flask_app)
+
+        # Assert a Flask app was returned with the router registered.
+        assert isinstance(result, Flask)
+        assert 'calc' in result.blueprints
+
+        # Assert the collaborators were composed with the resolved app session.
+        mock_get_app_session.assert_called_once_with('test_interface', mock_cache)
+        mock_build_session.assert_called_once_with(mock_app_session, mock_cache)
+
+    # * test: registers_swagger_only_when_enabled
+    def test_build_flask_app_with_swagger(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ) -> None:
+        '''
+        Verify build_flask_app registers a Swagger blueprint only when
+        swagger=True.
+        '''
+
+        # Build a mock interface context with a swagger blueprint.
+        mock_swagger_bp = Blueprint('swagger', __name__, url_prefix='/docs')
+        mock_context = mock.Mock()
+        mock_context.get_routers = mock.Mock(return_value=[])
+        mock_context.create_swagger_blueprint = mock.Mock(return_value=mock_swagger_bp)
+
+        # Patch the three collaborators build_flask_app composes.
+        with mock.patch('tiferet_flask.blueprints.flask.core.build_cache', return_value=mock.Mock()), \
+             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock.Mock()), \
+             mock.patch('tiferet_flask.blueprints.flask.build_flask_session_context', return_value=mock_context):
+
+            # Exercise build_flask_app with swagger enabled.
+            result = session.given(interface_id='test_interface', view_func=mock_view_func, swagger=True).run(target=build_flask_app)
+
+        # Assert create_swagger_blueprint was called and registered.
+        mock_context.create_swagger_blueprint.assert_called_once_with()
+        assert 'swagger' in result.blueprints
+
+    # * test: no_swagger_when_disabled
+    def test_build_flask_app_without_swagger(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ) -> None:
+        '''
+        Verify build_flask_app does not register Swagger when swagger=False.
+        '''
+
+        # Build a mock interface context with no routers.
+        mock_context = mock.Mock()
+        mock_context.get_routers = mock.Mock(return_value=[])
+        mock_context.create_swagger_blueprint = mock.Mock()
+
+        # Patch the three collaborators build_flask_app composes.
+        with mock.patch('tiferet_flask.blueprints.flask.core.build_cache', return_value=mock.Mock()), \
+             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock.Mock()), \
+             mock.patch('tiferet_flask.blueprints.flask.build_flask_session_context', return_value=mock_context):
+
+            # Exercise build_flask_app with swagger disabled.
+            result = session.given(interface_id='test_interface', view_func=mock_view_func, swagger=False).run(target=build_flask_app)
+
+        # Assert create_swagger_blueprint was not called and not registered.
+        mock_context.create_swagger_blueprint.assert_not_called()
+        assert 'swagger' not in result.blueprints
+
+    # * test: extra_parameters_go_to_get_app_session
+    def test_build_flask_app_extra_parameters_go_to_get_app_session(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ) -> None:
+        '''
+        Verify extra **parameters route to get_app_session, not to
+        create_swagger_blueprint.
+        '''
+
+        # Build a mock interface context with a swagger blueprint.
+        mock_swagger_bp = Blueprint('swagger', __name__, url_prefix='/docs')
+        mock_context = mock.Mock()
+        mock_context.get_routers = mock.Mock(return_value=[])
+        mock_context.create_swagger_blueprint = mock.Mock(return_value=mock_swagger_bp)
+        mock_cache = mock.Mock()
+
+        # Patch the three collaborators build_flask_app composes.
+        with mock.patch('tiferet_flask.blueprints.flask.core.build_cache', return_value=mock_cache), \
+             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock.Mock()) as mock_get_app_session, \
+             mock.patch('tiferet_flask.blueprints.flask.build_flask_session_context', return_value=mock_context):
+
+            # Exercise build_flask_app with an extra keyword parameter.
+            session.given(
+                interface_id='test_interface',
+                view_func=mock_view_func,
+                swagger=True,
+                extra_param='should_not_leak',
+            ).run(target=build_flask_app)
+
+        # Assert the extra parameter reached get_app_session.
+        mock_get_app_session.assert_called_once_with('test_interface', mock_cache, extra_param='should_not_leak')
+
+        # Assert create_swagger_blueprint received no extra parameters.
+        mock_context.create_swagger_blueprint.assert_called_once_with()
+
+# ** tester: test_run
+@use_tester(
+    type='generic',
+    target_cls=run,
+)
+class TestRun:
+    '''
+    Generic tester for run, a thin alias for build_flask_app.
+    '''
+
+    # * test: delegates_to_build_flask_app
+    def test_run_delegates_to_build_flask_app(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ) -> None:
+        '''
+        Verify run delegates to build_flask_app.
+        '''
+
+        # Patch build_flask_app to a sentinel return value.
+        with mock.patch('tiferet_flask.blueprints.flask.build_flask_app', return_value=mock.sentinel.flask_app) as mock_build_flask_app:
+
+            # Exercise run.
+            result = session.given(
+                interface_id='test_interface',
+                view_func=mock_view_func,
+                app_yaml_file='app.yml',
+            ).run(target=run)
+
+        # Assert the delegation and the passthrough return value.
+        mock_build_flask_app.assert_called_once_with('test_interface', mock_view_func, app_yaml_file='app.yml')
+        assert result is mock.sentinel.flask_app
