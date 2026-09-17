@@ -16,7 +16,6 @@ from tiferet_openapi import ApiRouter, create_openapi_request_context
 # ** app
 from ..contexts.flask import FlaskApiContext
 
-
 # *** functions
 
 # ** function: get_route_handler
@@ -40,7 +39,6 @@ def get_route_handler(get_dependency: Callable) -> Callable:
     # Return the closure.
     return handler
 
-
 # ** function: get_status_code_handler
 def get_status_code_handler(get_dependency: Callable) -> Callable:
     '''
@@ -62,7 +60,6 @@ def get_status_code_handler(get_dependency: Callable) -> Callable:
     # Return the closure.
     return handler
 
-
 # ** function: get_routers_handler
 def get_routers_handler(get_dependency: Callable) -> Callable:
     '''
@@ -83,7 +80,6 @@ def get_routers_handler(get_dependency: Callable) -> Callable:
 
     # Return the closure.
     return handler
-
 
 # *** blueprints
 
@@ -132,7 +128,6 @@ def build_flask_session_context(app_session: AppSession,
         **extra_kwargs,
     )
 
-
 # ** blueprint: get_routers
 def get_routers(interface_context: FlaskApiContext) -> List[ApiRouter]:
     '''
@@ -146,7 +141,6 @@ def get_routers(interface_context: FlaskApiContext) -> List[ApiRouter]:
 
     # Retrieve the routers from the interface context.
     return interface_context.get_routers()
-
 
 # ** blueprint: build_blueprint
 def build_blueprint(router: ApiRouter, view_func: Callable, **kwargs) -> Blueprint:
@@ -181,7 +175,6 @@ def build_blueprint(router: ApiRouter, view_func: Callable, **kwargs) -> Bluepri
 
     # Return the configured blueprint.
     return blueprint
-
 
 # ** blueprint: build_flask_app
 def build_flask_app(interface_id: str, view_func: Callable, swagger: bool = False, **parameters) -> Flask:
@@ -228,7 +221,6 @@ def build_flask_app(interface_id: str, view_func: Callable, swagger: bool = Fals
 
     # Return the assembled Flask application.
     return flask_app
-
 
 # ** blueprint: run
 def run(interface_id: str, view_func: Callable, **parameters) -> Flask:
