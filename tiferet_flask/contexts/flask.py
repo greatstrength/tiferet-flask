@@ -2,18 +2,33 @@
 
 # *** imports
 
+# ** core
+from typing import List
+
 # ** infra
 from flask import Blueprint, Response, jsonify
-from tiferet_openapi import OpenApiContext
+from tiferet_openapi import ApiRouter, OpenApiSessionContext
 
 
 # *** contexts
 
 # ** context: flask_api_context
-class FlaskApiContext(OpenApiContext):
+class FlaskApiContext(OpenApiSessionContext):
     '''
-    A Flask-specific API context extending the shared OpenAPI context.
+    A Flask-specific API context extending the shared OpenAPI session hub.
     '''
+
+    # * method: get_routers
+    def get_routers(self) -> List[ApiRouter]:
+        '''
+        Retrieve the configured routers via the injected handler.
+
+        :return: A list of ApiRouter domain objects.
+        :rtype: List[ApiRouter]
+        '''
+
+        # Call the injected routers handler directly.
+        return self._get_routers()
 
     # * method: create_swagger_blueprint
     def create_swagger_blueprint(self, title: str = 'API', version: str = '1.0.0', description: str = '') -> Blueprint:
@@ -56,17 +71,3 @@ class FlaskApiContext(OpenApiContext):
 
         # Return the swagger blueprint.
         return swagger_bp
-
-    # * method: create_docs_handler
-    def create_docs_handler(self, **kwargs):
-        '''
-        Override base create_docs_handler to return a Flask Swagger Blueprint.
-
-        :param kwargs: Keyword arguments passed to create_swagger_blueprint.
-        :type kwargs: dict
-        :return: A Flask Blueprint serving Swagger UI.
-        :rtype: Blueprint
-        '''
-
-        # Delegate to create_swagger_blueprint.
-        return self.create_swagger_blueprint(**kwargs)
