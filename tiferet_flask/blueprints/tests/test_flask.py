@@ -6,11 +6,11 @@ from unittest import mock
 # ** infra
 import pytest
 from flask import Flask, Blueprint
-from tiferet import use_tester
+from tiferet import TiferetAPIError, TiferetError, use_tester
 from tiferet.blueprints import core
 from tiferet.contexts.cache import CacheContext
 from tiferet.domain import AppSession
-from tiferet_openapi import ApiRoute, ApiRouter, create_openapi_request_context
+from tiferet_openapi import ApiErrorResponse, ApiRoute, ApiRouter, create_openapi_request_context
 
 # ** app
 from ..flask import (
@@ -18,6 +18,7 @@ from ..flask import (
     build_flask_app,
     build_flask_session_context,
     get_routers,
+    handle_tiferet_api_error,
     run,
 )
 from ...contexts.flask import FlaskApiContext
@@ -99,6 +100,19 @@ def cache() -> CacheContext:
     '''
 
     return core.build_cache()
+
+# ** fixture: sample_api_error
+@pytest.fixture
+def sample_api_error() -> TiferetAPIError:
+    '''
+    Fixture to provide a TiferetAPIError already resolved with a status code,
+    matching what OpenApiSessionContext.handle_error attaches.
+    '''
+
+    api_error = TiferetAPIError('DIVISION_BY_ZERO', message='Cannot divide by zero.', name='DIVISION_BY_ZERO')
+    api_error.status_code = 400
+
+    return api_error
 
 # *** testers
 
@@ -224,6 +238,76 @@ class TestGetRouters:
 
         # Assert the result is empty.
         assert result == []
+
+# ** tester: test_handle_tiferet_api_error
+@use_tester(
+    type='generic',
+    target_cls=handle_tiferet_api_error,
+)
+class TestHandleTiferetApiError:
+    '''
+    Generic tester for handle_tiferet_api_error.
+    '''
+
+    # * test: maps_error_and_message_with_status_code
+    def test_handle_tiferet_api_error_maps_body_and_status(
+            self,
+            session,
+            sample_api_error: TiferetAPIError,
+        ) -> None:
+        '''
+        Verify handle_tiferet_api_error returns an ApiErrorResponse-shaped
+        JSON body and the status code attached to the error.
+        '''
+
+        # Exercise handle_tiferet_api_error with a resolved TiferetAPIError.
+        flask_app = Flask(__name__)
+        with flask_app.test_request_context():
+            response, status_code = session.given(api_error=sample_api_error).run(target=handle_tiferet_api_error)
+
+        # Assert the JSON body validates as an ApiErrorResponse and the status is preserved.
+        body = response.get_json()
+        ApiErrorResponse(**body)
+        assert body == {'error': 'DIVISION_BY_ZERO', 'message': 'Cannot divide by zero.'}
+        assert status_code == 400
+
+    # * test: defaults_status_code_when_missing
+    def test_handle_tiferet_api_error_defaults_status_code(self, session) -> None:
+        '''
+        Verify handle_tiferet_api_error defaults to HTTP 500 when the error
+        was never resolved through OpenApiSessionContext.handle_error.
+        '''
+
+        # Build a TiferetAPIError with no status_code attribute attached.
+        unresolved_error = TiferetAPIError('UNRESOLVED_ERROR', message='Something broke.')
+
+        # Exercise handle_tiferet_api_error with the unresolved error.
+        flask_app = Flask(__name__)
+        with flask_app.test_request_context():
+            response, status_code = session.given(api_error=unresolved_error).run(target=handle_tiferet_api_error)
+
+        # Assert the default status code and the name-falls-back-to-error_code body.
+        assert response.get_json() == {'error': 'UNRESOLVED_ERROR', 'message': 'Something broke.'}
+        assert status_code == 500
+
+    # * test: defaults_empty_message
+    def test_handle_tiferet_api_error_defaults_empty_message(self, session) -> None:
+        '''
+        Verify handle_tiferet_api_error maps a missing message to an empty string.
+        '''
+
+        # Build a TiferetAPIError with no message.
+        api_error = TiferetAPIError('NO_MESSAGE_ERROR')
+        api_error.status_code = 404
+
+        # Exercise handle_tiferet_api_error with the messageless error.
+        flask_app = Flask(__name__)
+        with flask_app.test_request_context():
+            response, status_code = session.given(api_error=api_error).run(target=handle_tiferet_api_error)
+
+        # Assert the message defaults to an empty string.
+        assert response.get_json() == {'error': 'NO_MESSAGE_ERROR', 'message': ''}
+        assert status_code == 404
 
 # ** tester: test_build_flask_session_context
 @use_tester(
@@ -418,6 +502,36 @@ class TestBuildFlaskApp:
 
         # Assert create_swagger_blueprint received no extra parameters.
         mock_context.create_swagger_blueprint.assert_called_once_with()
+
+    # * test: registers_exactly_one_tiferet_api_error_handler
+    def test_build_flask_app_registers_tiferet_api_error_handler(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ) -> None:
+        '''
+        Verify build_flask_app registers exactly one errorhandler for
+        TiferetAPIError, and none for TiferetError or bare Exception.
+        '''
+
+        # Build a mock interface context with no routers.
+        mock_context = mock.Mock()
+        mock_context.get_routers = mock.Mock(return_value=[])
+
+        # Patch the three collaborators build_flask_app composes.
+        with mock.patch('tiferet_flask.blueprints.flask.core.build_cache', return_value=mock.Mock()), \
+             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock.Mock()), \
+             mock.patch('tiferet_flask.blueprints.flask.build_flask_session_context', return_value=mock_context):
+
+            # Exercise build_flask_app.
+            result = session.given(interface_id='test_interface', view_func=mock_view_func).run(target=build_flask_app)
+
+        # Assert exactly one handler is registered, bound to TiferetAPIError only.
+        error_handler_spec = result.error_handler_spec[None][None]
+        assert list(error_handler_spec.keys()) == [TiferetAPIError]
+        assert error_handler_spec[TiferetAPIError] is handle_tiferet_api_error
+        assert TiferetError not in error_handler_spec
+        assert Exception not in error_handler_spec
 
 # ** tester: test_run
 @use_tester(
