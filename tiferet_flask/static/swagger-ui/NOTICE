@@ -1,0 +1,14 @@
+swagger-ui-dist (vendored)
+Copyright 2020-2021 SmartBear Software Inc.
+
+This directory vendors a subset of the `swagger-ui-dist` npm package,
+pinned at version 5.33.0 (https://www.npmjs.com/package/swagger-ui-dist),
+so that TiferetApiContext.create_swagger_blueprint can serve the Swagger UI
+assets from this package without a runtime CDN dependency.
+
+Files vendored: swagger-ui.css, swagger-ui-bundle.js
+Upstream project: https://github.com/swagger-api/swagger-ui
+Upstream license: Apache License 2.0 (see LICENSE in this directory)
+
+Changing the pinned version is a docs/assets commit, not an RFP amendment,
+unless the HTML contract (SwaggerUIBundle + local css/js) changes.

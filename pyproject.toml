@@ -38,6 +38,9 @@ include = [
     "tiferet_flask.contexts"
 ]
 
+[tool.setuptools.package-data]
+tiferet_flask = ["static/swagger-ui/*"]
+
 [tool.setuptools.dynamic]
 version = { attr = "tiferet_flask.__version__" }
 
