@@ -1,6 +1,7 @@
 # *** imports
 
 # ** core
+import inspect
 from unittest import mock
 
 # ** infra
@@ -13,6 +14,7 @@ from tiferet.domain import AppSession
 from tiferet_openapi import ApiRoute, ApiRouter, create_openapi_request_context
 
 # ** app
+from .. import flask as flask_blueprint_module
 from ..flask import (
     build_blueprint,
     build_flask_app,
@@ -99,6 +101,20 @@ def cache() -> CacheContext:
     '''
 
     return core.build_cache()
+
+# *** tests
+
+# ** test: build_flask_app_module_has_no_generate_spec_reference
+def test_build_flask_app_module_has_no_generate_spec_reference():
+    '''
+    Verify tiferet_flask/blueprints/flask.py never references generate_spec;
+    swagger spec generation is delegated entirely to
+    FlaskApiContext.create_swagger_blueprint (RFP-003 AC).
+    '''
+
+    # Read the module source once and assert the identifier is absent.
+    source = inspect.getsource(flask_blueprint_module)
+    assert 'generate_spec' not in source
 
 # *** testers
 
@@ -418,6 +434,47 @@ class TestBuildFlaskApp:
 
         # Assert create_swagger_blueprint received no extra parameters.
         mock_context.create_swagger_blueprint.assert_called_once_with()
+
+    # * test: swagger_register_no_op_when_name_already_taken
+    def test_build_flask_app_swagger_register_no_op_when_name_already_taken(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ) -> None:
+        '''
+        Verify build_flask_app still calls create_swagger_blueprint when
+        swagger=True, but skips register_blueprint once a blueprint named
+        'swagger' is already registered, so /docs cannot mount twice
+        (RFP-003 item 4).
+        '''
+
+        # Build a router whose name collides with the swagger blueprint.
+        colliding_router = ApiRouter(
+            name='swagger',
+            prefix='/swagger-router',
+            routes=[
+                ApiRoute(id='ping', endpoint='swagger.ping', path='/ping', methods=['GET'], status_code=200),
+            ],
+        )
+        mock_swagger_bp = Blueprint('swagger', __name__, url_prefix='/docs')
+        mock_context = mock.Mock()
+        mock_context.get_routers = mock.Mock(return_value=[colliding_router])
+        mock_context.create_swagger_blueprint = mock.Mock(return_value=mock_swagger_bp)
+
+        # Patch the three collaborators build_flask_app composes.
+        with mock.patch('tiferet_flask.blueprints.flask.core.build_cache', return_value=mock.Mock()), \
+             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock.Mock()), \
+             mock.patch('tiferet_flask.blueprints.flask.build_flask_session_context', return_value=mock_context):
+
+            # Exercise build_flask_app with a colliding router and swagger enabled.
+            result = session.given(interface_id='test_interface', view_func=mock_view_func, swagger=True).run(target=build_flask_app)
+
+        # Assert create_swagger_blueprint is still called...
+        mock_context.create_swagger_blueprint.assert_called_once_with()
+
+        # ...but the router's own blueprint keeps the 'swagger' name; no ValueError raised.
+        assert 'swagger' in result.blueprints
+        assert result.blueprints['swagger'].url_prefix == '/swagger-router'
 
 # ** tester: test_run
 @use_tester(
