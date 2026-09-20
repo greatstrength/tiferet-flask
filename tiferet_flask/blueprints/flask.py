@@ -22,6 +22,7 @@ from ..assets.core import (
     GET_STATUS_CODE_EVT_SERVICE_ID,
 )
 from ..assets.cors import parse_cors_options
+from ..assets.swagger import SWAGGER_BLUEPRINT_NAME
 from ..contexts.flask import FlaskApiContext
 
 # *** functions
@@ -244,10 +245,11 @@ def build_flask_app(interface_id: str, view_func: Callable, swagger: bool = Fals
         blueprint = build_blueprint(router, view_func=view_func)
         flask_app.register_blueprint(blueprint)
 
-    # Optionally register the swagger blueprint.
+    # Optionally register the swagger blueprint, at most once per app.
     if swagger:
         swagger_bp = interface_context.create_swagger_blueprint()
-        flask_app.register_blueprint(swagger_bp)
+        if SWAGGER_BLUEPRINT_NAME not in flask_app.blueprints:
+            flask_app.register_blueprint(swagger_bp)
 
     # Return the assembled Flask application.
     return flask_app
