@@ -3,6 +3,12 @@
 # *** exports
 
 # ** app
+from .core import (
+    APP_FLAG,
+    GET_ROUTE_EVT_SERVICE_ID,
+    GET_ROUTERS_EVT_SERVICE_ID,
+    GET_STATUS_CODE_EVT_SERVICE_ID,
+)
 from .cors import (
     CORS_ALLOW_HEADERS_CONST_KEY,
     CORS_EXPOSE_HEADERS_CONST_KEY,
