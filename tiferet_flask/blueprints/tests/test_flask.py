@@ -38,7 +38,6 @@ from ...assets.swagger import (
 )
 from ...contexts.flask import FlaskApiContext
 
-
 # *** fixtures
 
 # ** fixture: sample_route
@@ -56,7 +55,6 @@ def sample_route() -> ApiRoute:
         status_code=200,
     )
 
-
 # ** fixture: sample_router
 @pytest.fixture
 def sample_router(sample_route: ApiRoute) -> ApiRouter:
@@ -69,7 +67,6 @@ def sample_router(sample_route: ApiRoute) -> ApiRouter:
         prefix='/calc',
         routes=[sample_route],
     )
-
 
 # ** fixture: multi_route_router
 @pytest.fixture
@@ -88,7 +85,6 @@ def multi_route_router() -> ApiRouter:
         ],
     )
 
-
 # ** fixture: mock_view_func
 @pytest.fixture
 def mock_view_func() -> mock.Mock:
@@ -100,7 +96,6 @@ def mock_view_func() -> mock.Mock:
     view_func = mock.Mock()
     view_func.required_methods = set()
     return view_func
-
 
 # ** fixture: app_session
 @pytest.fixture
@@ -114,7 +109,6 @@ def app_session() -> AppSession:
 
     return AppSession(id='test_flask', name='Test Flask API')
 
-
 # ** fixture: cache
 @pytest.fixture
 def cache() -> CacheContext:
@@ -126,7 +120,6 @@ def cache() -> CacheContext:
     '''
 
     return core.build_cache()
-
 
 # *** tests
 
@@ -147,7 +140,6 @@ def test_build_blueprint_single_route(sample_router: ApiRouter, mock_view_func: 
     # Assert the blueprint has one deferred function (the route).
     assert len(bp.deferred_functions) == 1
 
-
 # ** test: build_blueprint_multiple_routes
 def test_build_blueprint_multiple_routes(multi_route_router: ApiRouter, mock_view_func: mock.Mock):
     '''
@@ -163,7 +155,6 @@ def test_build_blueprint_multiple_routes(multi_route_router: ApiRouter, mock_vie
 
     # Assert the blueprint has three deferred functions (one per route).
     assert len(bp.deferred_functions) == 3
-
 
 # ** test: build_blueprint_no_prefix
 def test_build_blueprint_no_prefix(mock_view_func: mock.Mock):
@@ -187,7 +178,6 @@ def test_build_blueprint_no_prefix(mock_view_func: mock.Mock):
     assert bp.name == 'health'
     assert bp.url_prefix is None
 
-
 # ** test: build_flask_app_module_has_no_generate_spec_reference
 def test_build_flask_app_module_has_no_generate_spec_reference():
     '''
@@ -199,7 +189,6 @@ def test_build_flask_app_module_has_no_generate_spec_reference():
 
     # Assert swagger spec generation stays on FlaskApiContext.create_swagger_blueprint.
     assert 'generate_spec' not in source
-
 
 # *** testers
 
@@ -250,7 +239,6 @@ class TestGetRouters:
         interface_context.get_routers.assert_called_once_with()
         assert result == []
 
-
 # ** tester: test_get_route_handler
 @use_tester(
     type='generic',
@@ -279,7 +267,6 @@ class TestGetRouteHandler:
         get_dependency.assert_called_once_with(GET_ROUTE_EVT_SERVICE_ID, APP_FLAG)
         event.execute.assert_called_once_with(id='calc.add')
         assert result == 'route'
-
 
 # ** tester: test_get_status_code_handler
 @use_tester(
@@ -310,7 +297,6 @@ class TestGetStatusCodeHandler:
         event.execute.assert_called_once_with(error_code='DIVISION_BY_ZERO')
         assert result == 400
 
-
 # ** tester: test_get_routers_handler
 @use_tester(
     type='generic',
@@ -339,7 +325,6 @@ class TestGetRoutersHandler:
         get_dependency.assert_called_once_with(GET_ROUTERS_EVT_SERVICE_ID, APP_FLAG)
         event.execute.assert_called_once_with()
         assert result == []
-
 
 # ** tester: test_build_flask_session_context
 @use_tester(
@@ -412,7 +397,6 @@ class TestBuildFlaskSessionContext:
 
         # Assert the custom request handler is wired.
         assert result._create_request is custom_handler
-
 
 # ** tester: test_build_flask_app
 @use_tester(
