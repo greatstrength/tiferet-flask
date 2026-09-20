@@ -35,8 +35,12 @@ where = ["."]
 include = [
     "tiferet_flask",
     "tiferet_flask.blueprints",
-    "tiferet_flask.contexts"
+    "tiferet_flask.contexts",
+    "tiferet_flask.assets"
 ]
+
+[tool.setuptools.package-data]
+tiferet_flask = ["static/swagger-ui/*"]
 
 [tool.setuptools.dynamic]
 version = { attr = "tiferet_flask.__version__" }

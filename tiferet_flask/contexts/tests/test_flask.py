@@ -3,9 +3,12 @@
 # ** core
 from typing import Callable
 from unittest import mock
+import inspect
+from pathlib import Path
 
 # ** infra
 import pytest
+from flask import Flask, Blueprint
 from tiferet import use_tester
 from tiferet.contexts.app import AppSessionContext
 from tiferet.contexts.core import BaseContext, ContextMeta
@@ -14,6 +17,16 @@ from tiferet_openapi import ApiRoute, ApiRouter
 
 # ** app
 from ..flask import FlaskApiContext
+from .. import flask as flask_context_module
+from ...assets.swagger import (
+    SWAGGER_BLUEPRINT_NAME,
+    SWAGGER_OPENAPI_JSON_PATH,
+    SWAGGER_STATIC_FOLDER,
+    SWAGGER_STATIC_URL_PATH,
+    SWAGGER_UI_BUNDLE_JS_FILENAME,
+    SWAGGER_UI_CSS_FILENAME,
+    SWAGGER_URL_PREFIX,
+)
 
 # *** fixtures
 
@@ -148,6 +161,19 @@ def test_flask_api_context_not_registered():
     assert BaseContext.for_domain(AppSession) is AppSessionContext
     assert 'create_docs_handler' not in FlaskApiContext.__dict__
 
+# ** test: flask_context_module_uses_get_docs_spec_not_generate_spec
+def test_flask_context_module_uses_get_docs_spec_not_generate_spec():
+    '''
+    Assert FlaskApiContext snapshots docs through get_docs_spec.
+    '''
+
+    # Read the Flask API context module source.
+    source = inspect.getsource(flask_context_module)
+
+    # Assert the module snapshots via get_docs_spec and does not use generate_spec.
+    assert 'self.get_docs_spec(' in source
+    assert 'generate_spec' not in source
+
 # *** testers
 
 # ** tester: test_flask_api_context
@@ -189,3 +215,197 @@ class TestFlaskApiContext:
 
         # Assert the stored callable was invoked with no arguments.
         get_routers_handler.assert_called_once_with()
+
+    # * test: create_swagger_blueprint_returns_docs_blueprint
+    def test_create_swagger_blueprint_returns_docs_blueprint(
+            self,
+            session,
+            flask_api_context: FlaskApiContext,
+            get_routers_handler: Callable,
+        ):
+        '''
+        Assert create_swagger_blueprint returns the vendored docs Blueprint.
+
+        :param session: A fresh generic test session.
+        :type session: TestSessionContext
+        :param flask_api_context: The FlaskApiContext under test.
+        :type flask_api_context: FlaskApiContext
+        :param get_routers_handler: The injected routers handler mock.
+        :type get_routers_handler: Callable
+        '''
+
+        # Arrange an empty router catalog for spec snapshotting.
+        get_routers_handler.return_value = []
+
+        # Exercise create_swagger_blueprint through the generic test session.
+        result = session.given(title='Test API').run(
+            target=flask_api_context.create_swagger_blueprint
+        )
+
+        # Assert the docs Blueprint is wired to vendored static assets.
+        assert isinstance(result, Blueprint)
+        assert result.name == SWAGGER_BLUEPRINT_NAME
+        assert result.url_prefix == SWAGGER_URL_PREFIX
+        assert len(result.deferred_functions) == 2
+        assert result.has_static_folder is True
+        assert result.static_folder == SWAGGER_STATIC_FOLDER
+
+    # * test: create_swagger_blueprint_uses_get_docs_spec
+    def test_create_swagger_blueprint_uses_get_docs_spec(
+            self,
+            session,
+            flask_api_context: FlaskApiContext,
+            get_routers_handler: Callable,
+        ):
+        '''
+        Assert the first call snapshots the spec via get_docs_spec.
+
+        :param session: A fresh generic test session.
+        :type session: TestSessionContext
+        :param flask_api_context: The FlaskApiContext under test.
+        :type flask_api_context: FlaskApiContext
+        :param get_routers_handler: The injected routers handler mock.
+        :type get_routers_handler: Callable
+        '''
+
+        # Arrange an empty router catalog for spec snapshotting.
+        get_routers_handler.return_value = []
+
+        # Wrap get_docs_spec and exercise the first blueprint build.
+        with mock.patch.object(
+            flask_api_context,
+            'get_docs_spec',
+            wraps=flask_api_context.get_docs_spec,
+        ) as get_docs_spec:
+            session.given(
+                title='Test API',
+                version='2.0.0',
+                description='desc',
+            ).run(target=flask_api_context.create_swagger_blueprint)
+
+        # Assert get_docs_spec received the first-call identity kwargs.
+        get_docs_spec.assert_called_once_with(
+            title='Test API',
+            version='2.0.0',
+            description='desc',
+        )
+
+    # * test: create_swagger_blueprint_second_call_is_cached_no_op
+    def test_create_swagger_blueprint_second_call_is_cached_no_op(
+            self,
+            session,
+            flask_api_context: FlaskApiContext,
+            get_routers_handler: Callable,
+        ):
+        '''
+        Assert a second call returns the cached Blueprint without a new snapshot.
+
+        :param session: A fresh generic test session.
+        :type session: TestSessionContext
+        :param flask_api_context: The FlaskApiContext under test.
+        :type flask_api_context: FlaskApiContext
+        :param get_routers_handler: The injected routers handler mock.
+        :type get_routers_handler: Callable
+        '''
+
+        # Arrange an empty router catalog for spec snapshotting.
+        get_routers_handler.return_value = []
+
+        # Wrap get_docs_spec around the first and second blueprint calls.
+        with mock.patch.object(
+            flask_api_context,
+            'get_docs_spec',
+            wraps=flask_api_context.get_docs_spec,
+        ) as get_docs_spec:
+            first = session.given(title='Test API').run(
+                target=flask_api_context.create_swagger_blueprint
+            )
+            second = flask_api_context.create_swagger_blueprint(
+                title='Different Title'
+            )
+
+        # Assert the cached Blueprint is returned without a second snapshot.
+        assert second is first
+        get_docs_spec.assert_called_once()
+
+    # * test: swagger_ui_serves_vendored_assets_without_cdn
+    def test_swagger_ui_serves_vendored_assets_without_cdn(
+            self,
+            session,
+            flask_api_context: FlaskApiContext,
+            get_routers_handler: Callable,
+        ):
+        '''
+        Assert the docs UI serves vendored CSS/JS with no CDN hosts.
+
+        :param session: A fresh generic test session.
+        :type session: TestSessionContext
+        :param flask_api_context: The FlaskApiContext under test.
+        :type flask_api_context: FlaskApiContext
+        :param get_routers_handler: The injected routers handler mock.
+        :type get_routers_handler: Callable
+        '''
+
+        # Arrange an empty router catalog and register the swagger Blueprint.
+        get_routers_handler.return_value = []
+        swagger_bp = session.given(title='Test API').run(
+            target=flask_api_context.create_swagger_blueprint
+        )
+        app = Flask(__name__)
+        app.register_blueprint(swagger_bp)
+        client = app.test_client()
+
+        # Assert the UI HTML has no CDN hosts.
+        response = client.get(f'{SWAGGER_URL_PREFIX}/')
+        assert response.status_code == 200
+        text = response.get_data(as_text=True)
+        assert 'jsdelivr' not in text
+        assert 'cdn.jsdelivr.net' not in text
+
+        # Assert vendored CSS and JS bytes are served unchanged.
+        css_response = client.get(
+            f'{SWAGGER_URL_PREFIX}{SWAGGER_STATIC_URL_PATH}/{SWAGGER_UI_CSS_FILENAME}'
+        )
+        js_response = client.get(
+            f'{SWAGGER_URL_PREFIX}{SWAGGER_STATIC_URL_PATH}/{SWAGGER_UI_BUNDLE_JS_FILENAME}'
+        )
+        assert css_response.status_code == 200
+        assert js_response.status_code == 200
+        assert css_response.get_data() == (
+            Path(SWAGGER_STATIC_FOLDER) / SWAGGER_UI_CSS_FILENAME
+        ).read_bytes()
+        assert js_response.get_data() == (
+            Path(SWAGGER_STATIC_FOLDER) / SWAGGER_UI_BUNDLE_JS_FILENAME
+        ).read_bytes()
+
+    # * test: docs_openapi_json_returns_spec_snapshot
+    def test_docs_openapi_json_returns_spec_snapshot(
+            self,
+            session,
+            flask_api_context: FlaskApiContext,
+            get_routers_handler: Callable,
+        ):
+        '''
+        Assert /docs/openapi.json returns the first-call spec snapshot.
+
+        :param session: A fresh generic test session.
+        :type session: TestSessionContext
+        :param flask_api_context: The FlaskApiContext under test.
+        :type flask_api_context: FlaskApiContext
+        :param get_routers_handler: The injected routers handler mock.
+        :type get_routers_handler: Callable
+        '''
+
+        # Arrange an empty router catalog and register the swagger Blueprint.
+        get_routers_handler.return_value = []
+        swagger_bp = session.given(title='Snapshot API').run(
+            target=flask_api_context.create_swagger_blueprint
+        )
+        app = Flask(__name__)
+        app.register_blueprint(swagger_bp)
+        client = app.test_client()
+
+        # Assert the snapshot title is served from /docs/openapi.json.
+        response = client.get(SWAGGER_OPENAPI_JSON_PATH)
+        assert response.status_code == 200
+        assert response.get_json()['info']['title'] == 'Snapshot API'
