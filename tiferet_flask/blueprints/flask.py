@@ -3,37 +3,151 @@
 # *** imports
 
 # ** core
-from typing import Callable, List
+from typing import Any, Callable, List
 
 # ** infra
 from flask import Flask, Blueprint
 from flask_cors import CORS
-from tiferet.di import ServiceProvider
-from tiferet_openapi import ApiRouter
-from tiferet.blueprints.main import (
-    resolve_interface,
-    realize_interface,
-    create_service_provider,
-)
+from tiferet.blueprints import core
+from tiferet.contexts.app import AppSession
+from tiferet.contexts.cache import CacheContext
+from tiferet_openapi import ApiRouter, create_openapi_request_context
 
+# ** app
+from ..assets.core import (
+    APP_FLAG,
+    GET_ROUTE_EVT_SERVICE_ID,
+    GET_ROUTERS_EVT_SERVICE_ID,
+    GET_STATUS_CODE_EVT_SERVICE_ID,
+)
+from ..assets.swagger import SWAGGER_BLUEPRINT_NAME
+from ..contexts.flask import FlaskApiContext
 
 # *** blueprints
 
-# ** blueprint: get_routers
-def get_routers(service_provider: ServiceProvider) -> List[ApiRouter]:
+# ** blueprint: get_route_handler
+def get_route_handler(get_dependency: Callable) -> Callable:
     '''
-    Resolve and execute the get_routers event from the service provider.
+    Build a route-lookup closure that resolves the get-route event via DI.
 
-    :param service_provider: The service provider to resolve events from.
-    :type service_provider: ServiceProvider
+    :param get_dependency: The DI resolution handler.
+    :type get_dependency: Callable
+    :return: A callable that retrieves a route by identifier.
+    :rtype: Callable
+    '''
+
+    # Return the handler closure bound to the resolver.
+    def handler(**kwargs) -> Any:
+
+        # Resolve and execute the named OpenAPI event.
+        event = get_dependency(GET_ROUTE_EVT_SERVICE_ID, APP_FLAG)
+        return event.execute(**kwargs)
+
+    # Return the closure.
+    return handler
+
+# ** blueprint: get_status_code_handler
+def get_status_code_handler(get_dependency: Callable) -> Callable:
+    '''
+    Build a status-code-lookup closure that resolves the get-status-code event via DI.
+
+    :param get_dependency: The DI resolution handler.
+    :type get_dependency: Callable
+    :return: A callable that retrieves an HTTP status code by error code.
+    :rtype: Callable
+    '''
+
+    # Return the handler closure bound to the resolver.
+    def handler(**kwargs) -> Any:
+
+        # Resolve and execute the named OpenAPI event.
+        event = get_dependency(GET_STATUS_CODE_EVT_SERVICE_ID, APP_FLAG)
+        return event.execute(**kwargs)
+
+    # Return the closure.
+    return handler
+
+# ** blueprint: get_routers_handler
+def get_routers_handler(get_dependency: Callable) -> Callable:
+    '''
+    Build a routers-lookup closure that resolves the get-routers event via DI.
+
+    :param get_dependency: The DI resolution handler.
+    :type get_dependency: Callable
+    :return: A callable that retrieves the configured routers.
+    :rtype: Callable
+    '''
+
+    # Return the handler closure bound to the resolver.
+    def handler(**kwargs) -> Any:
+
+        # Resolve and execute the named OpenAPI event.
+        event = get_dependency(GET_ROUTERS_EVT_SERVICE_ID, APP_FLAG)
+        return event.execute(**kwargs)
+
+    # Return the closure.
+    return handler
+
+# ** blueprint: build_flask_session_context
+def build_flask_session_context(app_session: AppSession,
+        cache: CacheContext,
+        create_request_handler: Callable = None,
+        **extra_kwargs) -> FlaskApiContext:
+    '''
+    Build a fully wired Flask API context from a resolved app session.
+
+    Parallel to ``tiferet_openapi.blueprints.openapi.build_openapi_session_context``,
+    but constructs ``FlaskApiContext`` directly so Flask-specific methods such
+    as ``create_swagger_blueprint`` remain available. ``create_request_handler``
+    defaults to ``create_openapi_request_context`` when omitted. ``extra_kwargs``
+    forward to the context constructor.
+
+    :param app_session: The resolved app session definition.
+    :type app_session: AppSession
+    :param cache: The pre-built shared cache context.
+    :type cache: CacheContext
+    :param create_request_handler: Optional request-construction handler;
+        defaults to ``create_openapi_request_context`` when omitted.
+    :type create_request_handler: Callable
+    :param extra_kwargs: Additional keyword arguments forwarded to the
+        context constructor.
+    :type extra_kwargs: dict
+    :return: The wired Flask API session context.
+    :rtype: FlaskApiContext
+    '''
+
+    # Build the app service container and compose the feature-level resolver.
+    app_container = core.build_app_service_container(cache, app_session)
+    resolver = core.build_service_resolver(app_container)
+
+    # Delegate handler wiring, collaborator resolution, and construction.
+    return core.compose_session_context(
+        FlaskApiContext,
+        app_session,
+        cache,
+        app_container,
+        resolver,
+        create_request_handler=create_request_handler or create_openapi_request_context,
+        response_handler=core.response_handler,
+        get_route_handler=get_route_handler(resolver.get_dependency),
+        get_status_code_handler=get_status_code_handler(resolver.get_dependency),
+        get_routers_handler=get_routers_handler(resolver.get_dependency),
+        **extra_kwargs,
+    )
+
+# ** blueprint: get_routers
+def get_routers(interface_context: FlaskApiContext) -> List[ApiRouter]:
+    '''
+    Retrieve the configured routers from the composed Flask API context.
+
+    :param interface_context: The composed Flask API session context.
+    :type interface_context: FlaskApiContext
     :return: A list of ApiRouter domain objects.
     :rtype: List[ApiRouter]
     '''
 
-    # Resolve the get_routers event and execute it.
-    get_routers_evt = service_provider.get_service('get_routers_evt')
-    return get_routers_evt.execute()
-
+    # Return the routers from the composed context.
+    return interface_context.get_routers()
 
 # ** blueprint: build_blueprint
 def build_blueprint(router: ApiRouter, view_func: Callable, **kwargs) -> Blueprint:
@@ -69,14 +183,14 @@ def build_blueprint(router: ApiRouter, view_func: Callable, **kwargs) -> Bluepri
     # Return the configured blueprint.
     return blueprint
 
-
 # ** blueprint: build_flask_app
 def build_flask_app(interface_id: str, view_func: Callable, swagger: bool = False, **parameters) -> Flask:
     '''
-    Build a complete Flask application with CORS and blueprints.
+    Build a complete Flask application from a composed session context.
 
-    Resolves the interface via tiferet.blueprints.main, realizes it,
-    builds CORS-enabled Flask app, and registers routers as blueprints.
+    Loads the app session via ``core.build_cache`` / ``core.get_app_session``,
+    composes ``FlaskApiContext`` via ``build_flask_session_context``, builds
+    the Flask app, and registers routers as blueprints.
 
     :param interface_id: The interface ID to load.
     :type interface_id: str
@@ -84,41 +198,34 @@ def build_flask_app(interface_id: str, view_func: Callable, swagger: bool = Fals
     :type view_func: Callable
     :param swagger: Whether to register a Swagger UI blueprint.
     :type swagger: bool
-    :param parameters: Additional keyword arguments passed to resolve_interface.
+    :param parameters: Additional keyword arguments passed to core.get_app_session.
     :type parameters: dict
     :return: A configured Flask application instance.
     :rtype: Flask
     '''
 
-    # Resolve the interface definition.
-    app_interface, default_services = resolve_interface(interface_id, **parameters)
-
-    # Build a service provider seeded with default service dependencies.
-    service_provider = create_service_provider(
-        type_map={dep.service_id: dep.get_service_type() for dep in default_services},
-    )
-
-    # Realize the app interface context.
-    interface_context = realize_interface(app_interface, interface_id)
+    # Load the app session and compose the Flask API context.
+    cache = core.build_cache()
+    app_session = core.get_app_session(interface_id, cache, **parameters)
+    interface_context = build_flask_session_context(app_session, cache)
 
     # Create the Flask application with CORS.
     flask_app = Flask(__name__)
     CORS(flask_app)
 
     # Load and register routers as blueprints.
-    routers = get_routers(service_provider)
+    routers = get_routers(interface_context)
     for router in routers:
-        blueprint = build_blueprint(router, view_func=view_func)
-        flask_app.register_blueprint(blueprint)
+        flask_app.register_blueprint(build_blueprint(router, view_func=view_func))
 
-    # Optionally register the swagger blueprint.
-    if swagger and hasattr(interface_context, 'create_swagger_blueprint'):
-        swagger_bp = interface_context.create_swagger_blueprint(**parameters)
-        flask_app.register_blueprint(swagger_bp)
+    # Optionally register the swagger blueprint at most once.
+    if swagger:
+        swagger_bp = interface_context.create_swagger_blueprint()
+        if SWAGGER_BLUEPRINT_NAME not in flask_app.blueprints:
+            flask_app.register_blueprint(swagger_bp)
 
     # Return the assembled Flask application.
     return flask_app
-
 
 # ** blueprint: run
 def run(interface_id: str, view_func: Callable, **parameters) -> Flask:
