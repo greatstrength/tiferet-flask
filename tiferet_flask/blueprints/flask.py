@@ -16,72 +16,10 @@ from tiferet_openapi import ApiErrorResponse, ApiRouter, create_openapi_request_
 
 # ** app
 from ..assets.cors import parse_cors_options
+from ..assets.session import get_route_handler, get_routers_handler, get_status_code_handler
 from ..contexts.flask import FlaskApiContext
 
 # *** functions
-
-# ** function: get_route_handler
-def get_route_handler(get_dependency: Callable) -> Callable:
-    '''
-    Build a route-lookup closure that resolves the get-route event via DI.
-
-    :param get_dependency: The DI resolution handler.
-    :type get_dependency: Callable
-    :return: A callable that retrieves a route by endpoint.
-    :rtype: Callable
-    '''
-
-    # Return the handler closure bound to the resolver.
-    def handler(**kwargs) -> Any:
-
-        # Resolve and execute the get-route event.
-        get_route_evt = get_dependency('get_route_evt', 'app')
-        return get_route_evt.execute(**kwargs)
-
-    # Return the closure.
-    return handler
-
-# ** function: get_status_code_handler
-def get_status_code_handler(get_dependency: Callable) -> Callable:
-    '''
-    Build a status-code-lookup closure that resolves the get-status-code event via DI.
-
-    :param get_dependency: The DI resolution handler.
-    :type get_dependency: Callable
-    :return: A callable that retrieves an HTTP status code by error code.
-    :rtype: Callable
-    '''
-
-    # Return the handler closure bound to the resolver.
-    def handler(**kwargs) -> Any:
-
-        # Resolve and execute the get-status-code event.
-        get_status_code_evt = get_dependency('get_status_code_evt', 'app')
-        return get_status_code_evt.execute(**kwargs)
-
-    # Return the closure.
-    return handler
-
-# ** function: get_routers_handler
-def get_routers_handler(get_dependency: Callable) -> Callable:
-    '''
-    Build a routers-lookup closure that resolves the get-routers event via DI.
-
-    :param get_dependency: The DI resolution handler.
-    :type get_dependency: Callable
-    :return: A callable that retrieves the configured routers.
-    :rtype: Callable
-    '''
-
-    # Return the handler closure bound to the resolver.
-    def handler(**kwargs) -> Any:
-
-        # Resolve and execute the get-routers event.
-        get_routers_evt = get_dependency('get_routers_evt', 'app')
-        return get_routers_evt.execute(**kwargs)
-
-    # Return the closure.
-    return handler
 
 # ** function: handle_tiferet_api_error
 def handle_tiferet_api_error(api_error: TiferetAPIError) -> Any:
