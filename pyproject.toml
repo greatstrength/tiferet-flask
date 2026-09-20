@@ -34,6 +34,7 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = [
     "tiferet_flask",
+    "tiferet_flask.assets",
     "tiferet_flask.blueprints",
     "tiferet_flask.contexts"
 ]

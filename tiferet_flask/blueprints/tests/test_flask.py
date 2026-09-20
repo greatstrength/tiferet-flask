@@ -13,11 +13,21 @@ from tiferet.domain import AppSession
 from tiferet_openapi import ApiErrorResponse, ApiRoute, ApiRouter, create_openapi_request_context
 
 # ** app
+from ...assets.core import (
+    APP_FLAG,
+    GET_ROUTE_EVT_SERVICE_ID,
+    GET_ROUTERS_EVT_SERVICE_ID,
+    GET_STATUS_CODE_EVT_SERVICE_ID,
+)
+from ...assets.cors import CORS_ORIGINS_CONST_KEY
 from ..flask import (
     build_blueprint,
     build_flask_app,
     build_flask_session_context,
+    get_route_handler,
     get_routers,
+    get_routers_handler,
+    get_status_code_handler,
     handle_tiferet_api_error,
     run,
 )
@@ -239,6 +249,99 @@ class TestGetRouters:
         # Assert the result is empty.
         assert result == []
 
+# ** tester: test_get_route_handler
+@use_tester(
+    type='generic',
+    target_cls=get_route_handler,
+)
+class TestGetRouteHandler:
+    '''
+    Generic tester for get_route_handler.
+    '''
+
+    # * test: resolves_service_id_and_app_flag
+    def test_get_route_handler_resolves_service_id_and_app_flag(self, session) -> None:
+        '''
+        Verify the built closure resolves the get-route event with the
+        service id and 'app' flag, then calls execute(**kwargs).
+        '''
+
+        # Build a mock get_dependency resolver returning a mock event.
+        get_route_evt = mock.Mock()
+        get_route_evt.execute = mock.Mock(return_value=mock.sentinel.route)
+        get_dependency = mock.Mock(return_value=get_route_evt)
+
+        # Exercise get_route_handler to build the closure, then call it.
+        handler = session.given(get_dependency=get_dependency).run(target=get_route_handler)
+        result = handler(id='calc.add')
+
+        # Assert the resolution shape and passthrough return value.
+        get_dependency.assert_called_once_with(GET_ROUTE_EVT_SERVICE_ID, APP_FLAG)
+        get_route_evt.execute.assert_called_once_with(id='calc.add')
+        assert result is mock.sentinel.route
+
+# ** tester: test_get_status_code_handler
+@use_tester(
+    type='generic',
+    target_cls=get_status_code_handler,
+)
+class TestGetStatusCodeHandler:
+    '''
+    Generic tester for get_status_code_handler.
+    '''
+
+    # * test: resolves_service_id_and_app_flag
+    def test_get_status_code_handler_resolves_service_id_and_app_flag(self, session) -> None:
+        '''
+        Verify the built closure resolves the get-status-code event with the
+        service id and 'app' flag, then calls execute(**kwargs).
+        '''
+
+        # Build a mock get_dependency resolver returning a mock event.
+        get_status_code_evt = mock.Mock()
+        get_status_code_evt.execute = mock.Mock(return_value=mock.sentinel.status_code)
+        get_dependency = mock.Mock(return_value=get_status_code_evt)
+
+        # Exercise get_status_code_handler to build the closure, then call it.
+        handler = session.given(get_dependency=get_dependency).run(target=get_status_code_handler)
+        result = handler(error_code='DIVISION_BY_ZERO')
+
+        # Assert the resolution shape and passthrough return value.
+        get_dependency.assert_called_once_with(GET_STATUS_CODE_EVT_SERVICE_ID, APP_FLAG)
+        get_status_code_evt.execute.assert_called_once_with(error_code='DIVISION_BY_ZERO')
+        assert result is mock.sentinel.status_code
+
+# ** tester: test_get_routers_handler
+@use_tester(
+    type='generic',
+    target_cls=get_routers_handler,
+)
+class TestGetRoutersHandler:
+    '''
+    Generic tester for get_routers_handler.
+    '''
+
+    # * test: resolves_service_id_and_app_flag
+    def test_get_routers_handler_resolves_service_id_and_app_flag(self, session) -> None:
+        '''
+        Verify the built closure resolves the get-routers event with the
+        service id and 'app' flag, then calls execute(**kwargs).
+        '''
+
+        # Build a mock get_dependency resolver returning a mock event.
+        get_routers_evt = mock.Mock()
+        get_routers_evt.execute = mock.Mock(return_value=mock.sentinel.routers)
+        get_dependency = mock.Mock(return_value=get_routers_evt)
+
+        # Exercise get_routers_handler to build the closure, then call it.
+        handler = session.given(get_dependency=get_dependency).run(target=get_routers_handler)
+        result = handler()
+
+        # Assert the resolution shape and passthrough return value.
+        get_dependency.assert_called_once_with(GET_ROUTERS_EVT_SERVICE_ID, APP_FLAG)
+        get_routers_evt.execute.assert_called_once_with()
+        assert result is mock.sentinel.routers
+
 # ** tester: test_handle_tiferet_api_error
 @use_tester(
     type='generic',
@@ -392,7 +495,7 @@ class TestBuildFlaskApp:
         mock_context = mock.Mock()
         mock_context.get_routers = mock.Mock(return_value=[sample_router])
         mock_cache = mock.Mock()
-        mock_app_session = mock.Mock()
+        mock_app_session = mock.Mock(constants={})
 
         # Patch the three collaborators build_flask_app composes.
         with mock.patch('tiferet_flask.blueprints.flask.core.build_cache', return_value=mock_cache), \
@@ -429,7 +532,7 @@ class TestBuildFlaskApp:
 
         # Patch the three collaborators build_flask_app composes.
         with mock.patch('tiferet_flask.blueprints.flask.core.build_cache', return_value=mock.Mock()), \
-             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock.Mock()), \
+             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock.Mock(constants={})), \
              mock.patch('tiferet_flask.blueprints.flask.build_flask_session_context', return_value=mock_context):
 
             # Exercise build_flask_app with swagger enabled.
@@ -456,7 +559,7 @@ class TestBuildFlaskApp:
 
         # Patch the three collaborators build_flask_app composes.
         with mock.patch('tiferet_flask.blueprints.flask.core.build_cache', return_value=mock.Mock()), \
-             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock.Mock()), \
+             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock.Mock(constants={})), \
              mock.patch('tiferet_flask.blueprints.flask.build_flask_session_context', return_value=mock_context):
 
             # Exercise build_flask_app with swagger disabled.
@@ -486,7 +589,7 @@ class TestBuildFlaskApp:
 
         # Patch the three collaborators build_flask_app composes.
         with mock.patch('tiferet_flask.blueprints.flask.core.build_cache', return_value=mock_cache), \
-             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock.Mock()) as mock_get_app_session, \
+             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock.Mock(constants={})) as mock_get_app_session, \
              mock.patch('tiferet_flask.blueprints.flask.build_flask_session_context', return_value=mock_context):
 
             # Exercise build_flask_app with an extra keyword parameter.
@@ -520,7 +623,7 @@ class TestBuildFlaskApp:
 
         # Patch the three collaborators build_flask_app composes.
         with mock.patch('tiferet_flask.blueprints.flask.core.build_cache', return_value=mock.Mock()), \
-             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock.Mock()), \
+             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock.Mock(constants={})), \
              mock.patch('tiferet_flask.blueprints.flask.build_flask_session_context', return_value=mock_context):
 
             # Exercise build_flask_app.
@@ -532,6 +635,62 @@ class TestBuildFlaskApp:
         assert error_handler_spec[TiferetAPIError] is handle_tiferet_api_error
         assert TiferetError not in error_handler_spec
         assert Exception not in error_handler_spec
+
+    # * test: forwards_parsed_cors_options
+    def test_build_flask_app_forwards_parsed_cors_options(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ) -> None:
+        '''
+        Verify build_flask_app forwards parse_cors_options(app_session.constants)
+        into flask_cors.CORS as kwargs.
+        '''
+
+        # Build a mock interface context with no routers.
+        mock_context = mock.Mock()
+        mock_context.get_routers = mock.Mock(return_value=[])
+        mock_app_session = mock.Mock(constants={CORS_ORIGINS_CONST_KEY: 'https://app.example.com'})
+
+        # Patch the collaborators, including CORS itself, on the module under test.
+        with mock.patch('tiferet_flask.blueprints.flask.core.build_cache', return_value=mock.Mock()), \
+             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock_app_session), \
+             mock.patch('tiferet_flask.blueprints.flask.build_flask_session_context', return_value=mock_context), \
+             mock.patch('tiferet_flask.blueprints.flask.CORS') as mock_cors:
+
+            # Exercise build_flask_app.
+            result = session.given(interface_id='test_interface', view_func=mock_view_func).run(target=build_flask_app)
+
+        # Assert CORS was called with the Flask app and the parsed kwargs.
+        mock_cors.assert_called_once_with(result, origins=['https://app.example.com'])
+
+    # * test: empty_constants_call_cors_with_no_kwargs
+    def test_build_flask_app_empty_constants_calls_cors_with_no_kwargs(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ) -> None:
+        '''
+        Verify build_flask_app calls CORS(flask_app) equivalently when
+        app_session.constants has no recognized cors_* keys.
+        '''
+
+        # Build a mock interface context with no routers and no cors constants.
+        mock_context = mock.Mock()
+        mock_context.get_routers = mock.Mock(return_value=[])
+        mock_app_session = mock.Mock(constants={})
+
+        # Patch the collaborators, including CORS itself, on the module under test.
+        with mock.patch('tiferet_flask.blueprints.flask.core.build_cache', return_value=mock.Mock()), \
+             mock.patch('tiferet_flask.blueprints.flask.core.get_app_session', return_value=mock_app_session), \
+             mock.patch('tiferet_flask.blueprints.flask.build_flask_session_context', return_value=mock_context), \
+             mock.patch('tiferet_flask.blueprints.flask.CORS') as mock_cors:
+
+            # Exercise build_flask_app.
+            result = session.given(interface_id='test_interface', view_func=mock_view_func).run(target=build_flask_app)
+
+        # Assert CORS was called with the Flask app and no additional kwargs.
+        mock_cors.assert_called_once_with(result)
 
 # ** tester: test_run
 @use_tester(
