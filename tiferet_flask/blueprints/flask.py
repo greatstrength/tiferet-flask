@@ -20,6 +20,7 @@ from ..assets.core import (
     GET_ROUTERS_EVT_SERVICE_ID,
     GET_STATUS_CODE_EVT_SERVICE_ID,
 )
+from ..assets.cors import parse_cors_options
 from ..assets.swagger import SWAGGER_BLUEPRINT_NAME
 from ..contexts.flask import FlaskApiContext
 
@@ -209,9 +210,9 @@ def build_flask_app(interface_id: str, view_func: Callable, swagger: bool = Fals
     app_session = core.get_app_session(interface_id, cache, **parameters)
     interface_context = build_flask_session_context(app_session, cache)
 
-    # Create the Flask application with CORS.
+    # Create the Flask application with CORS parsed from the session constants.
     flask_app = Flask(__name__)
-    CORS(flask_app)
+    CORS(flask_app, **parse_cors_options(app_session.constants))
 
     # Load and register routers as blueprints.
     routers = get_routers(interface_context)

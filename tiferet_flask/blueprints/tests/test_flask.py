@@ -32,6 +32,7 @@ from ...assets.core import (
     GET_ROUTERS_EVT_SERVICE_ID,
     GET_STATUS_CODE_EVT_SERVICE_ID,
 )
+from ...assets.cors import CORS_ORIGINS_CONST_KEY
 from ...assets.swagger import (
     SWAGGER_BLUEPRINT_NAME,
     SWAGGER_URL_PREFIX,
@@ -426,6 +427,7 @@ class TestBuildFlaskApp:
         # Patch session assembly collaborators.
         mock_cache = mock.Mock()
         mock_app_session = mock.Mock()
+        mock_app_session.constants = {}
         mock_context = mock.Mock(spec=FlaskApiContext)
         mock_context.get_routers.return_value = [sample_router]
 
@@ -469,6 +471,7 @@ class TestBuildFlaskApp:
         # Patch session assembly collaborators.
         mock_cache = mock.Mock()
         mock_app_session = mock.Mock()
+        mock_app_session.constants = {}
         mock_context = mock.Mock(spec=FlaskApiContext)
         mock_context.get_routers.return_value = [sample_router]
         swagger_bp = Blueprint(
@@ -515,6 +518,7 @@ class TestBuildFlaskApp:
         # Patch session assembly collaborators.
         mock_cache = mock.Mock()
         mock_app_session = mock.Mock()
+        mock_app_session.constants = {}
         mock_context = mock.Mock(spec=FlaskApiContext)
         mock_context.get_routers.return_value = [sample_router]
 
@@ -554,6 +558,7 @@ class TestBuildFlaskApp:
         # Patch session assembly collaborators.
         mock_cache = mock.Mock()
         mock_app_session = mock.Mock()
+        mock_app_session.constants = {}
         mock_context = mock.Mock(spec=FlaskApiContext)
         mock_context.get_routers.return_value = [sample_router]
         swagger_bp = Blueprint(
@@ -614,6 +619,7 @@ class TestBuildFlaskApp:
         )
         mock_cache = mock.Mock()
         mock_app_session = mock.Mock()
+        mock_app_session.constants = {}
         mock_context = mock.Mock(spec=FlaskApiContext)
         mock_context.get_routers.return_value = [collision_router]
         swagger_bp = Blueprint(
@@ -641,3 +647,96 @@ class TestBuildFlaskApp:
         mock_context.create_swagger_blueprint.assert_called_once_with()
         assert result.blueprints[SWAGGER_BLUEPRINT_NAME].url_prefix == '/already-taken'
         assert result.blueprints[SWAGGER_BLUEPRINT_NAME] is not swagger_bp
+
+    # * test: forwards_parsed_cors_options
+    def test_build_flask_app_forwards_parsed_cors_options(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ):
+        '''
+        Test CORS receives origins parsed from app session constants.
+
+        :param session: A fresh generic test session.
+        :type session: TestSessionContext
+        :param mock_view_func: The mock view function.
+        :type mock_view_func: mock.Mock
+        '''
+
+        # Patch session assembly collaborators and CORS.
+        mock_cache = mock.Mock()
+        mock_app_session = mock.Mock()
+        mock_app_session.constants = {
+            CORS_ORIGINS_CONST_KEY: 'https://app.example.com',
+        }
+        mock_context = mock.Mock(spec=FlaskApiContext)
+        mock_context.get_routers.return_value = []
+
+        with mock.patch(
+            'tiferet_flask.blueprints.flask.core.build_cache',
+            return_value=mock_cache,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.core.get_app_session',
+            return_value=mock_app_session,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.build_flask_session_context',
+            return_value=mock_context,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.CORS',
+        ) as mock_cors:
+
+            # Build the Flask application from the given session.
+            result = session.given(
+                interface_id='test_interface',
+                view_func=mock_view_func,
+            ).run(target=build_flask_app)
+
+        # Assert CORS is applied with the parsed origins kwarg.
+        mock_cors.assert_called_once_with(
+            result,
+            origins=['https://app.example.com'],
+        )
+
+    # * test: empty_constants_call_cors_with_no_kwargs
+    def test_build_flask_app_empty_constants_calls_cors_with_no_kwargs(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ):
+        '''
+        Test empty session constants still apply CORS with no extra kwargs.
+
+        :param session: A fresh generic test session.
+        :type session: TestSessionContext
+        :param mock_view_func: The mock view function.
+        :type mock_view_func: mock.Mock
+        '''
+
+        # Patch session assembly collaborators and CORS.
+        mock_cache = mock.Mock()
+        mock_app_session = mock.Mock()
+        mock_app_session.constants = {}
+        mock_context = mock.Mock(spec=FlaskApiContext)
+        mock_context.get_routers.return_value = []
+
+        with mock.patch(
+            'tiferet_flask.blueprints.flask.core.build_cache',
+            return_value=mock_cache,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.core.get_app_session',
+            return_value=mock_app_session,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.build_flask_session_context',
+            return_value=mock_context,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.CORS',
+        ) as mock_cors:
+
+            # Build the Flask application from the given session.
+            result = session.given(
+                interface_id='test_interface',
+                view_func=mock_view_func,
+            ).run(target=build_flask_app)
+
+        # Assert CORS is applied with the Flask app as the only argument.
+        mock_cors.assert_called_once_with(result)
