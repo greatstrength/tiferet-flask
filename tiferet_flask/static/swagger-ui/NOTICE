@@ -1,0 +1,15 @@
+swagger-ui-dist (vendored)
+
+Copyright 2020–2021 SmartBear Software Inc.
+
+Pinned version: 5.33.0
+npm: https://www.npmjs.com/package/swagger-ui-dist
+Upstream: https://github.com/swagger-api/swagger-ui
+Upstream license: Apache License 2.0 (see LICENSE in this directory)
+
+Vendored files:
+- swagger-ui.css
+- swagger-ui-bundle.js
+
+These files are vendored so FlaskApiContext.create_swagger_blueprint can
+serve Swagger UI without a runtime CDN.
