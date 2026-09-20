@@ -6,12 +6,13 @@
 from typing import Any, Callable, List
 
 # ** infra
-from flask import Flask, Blueprint
+from flask import Flask, Blueprint, jsonify
 from flask_cors import CORS
+from tiferet import TiferetAPIError
 from tiferet.blueprints import core
 from tiferet.contexts.app import AppSession
 from tiferet.contexts.cache import CacheContext
-from tiferet_openapi import ApiRouter, create_openapi_request_context
+from tiferet_openapi import ApiErrorResponse, ApiRouter, create_openapi_request_context
 
 # ** app
 from ..assets.core import (
@@ -22,6 +23,25 @@ from ..assets.core import (
 )
 from ..assets.swagger import SWAGGER_BLUEPRINT_NAME
 from ..contexts.flask import FlaskApiContext
+
+# *** functions
+
+# ** function: handle_tiferet_api_error
+def handle_tiferet_api_error(api_error: TiferetAPIError) -> Any:
+    '''
+    Map a raised TiferetAPIError into a structured JSON error response.
+
+    :param api_error: The catalogued API error already raised to Flask.
+    :type api_error: TiferetAPIError
+    :return: A JSON response body and HTTP status code pair.
+    :rtype: Any
+    '''
+
+    # Build the structured error payload from the raised API error.
+    payload = ApiErrorResponse(error=api_error.name, message=api_error.message or '')
+
+    # Return the JSON body with the attached status code, defaulting to 500.
+    return (jsonify(payload.model_dump()), getattr(api_error, 'status_code', 500))
 
 # *** blueprints
 
@@ -212,6 +232,10 @@ def build_flask_app(interface_id: str, view_func: Callable, swagger: bool = Fals
     # Create the Flask application with CORS.
     flask_app = Flask(__name__)
     CORS(flask_app)
+
+    # Register the TiferetAPIError errorhandler so uncaught catalogued errors
+    # surface as structured JSON instead of Flask's default 500 HTML page.
+    flask_app.register_error_handler(TiferetAPIError, handle_tiferet_api_error)
 
     # Load and register routers as blueprints.
     routers = get_routers(interface_context)
