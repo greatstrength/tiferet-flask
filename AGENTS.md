@@ -1,4 +1,4 @@
-# AGENTS.md — Tiferet Flask (v0.5.0)
+# AGENTS.md — Tiferet Flask (v1.0.0)
 
 ## Project Overview
 
@@ -7,8 +7,8 @@
 - **Repository:** https://github.com/greatstrength/tiferet-flask
 - **Branch:** `main`
 - **Python:** ≥ 3.10
-- **Version:** `0.5.0`
-- **Dependencies:** `tiferet-openapi >= 0.1.3`, `flask >= 3.1.2`, `flask_cors >= 6.0.1`
+- **Version:** `1.0.0`
+- **Dependencies:** `tiferet>=2.1.1`, `tiferet-openapi>=1.0.0`, `flask >= 3.1.2`, `flask_cors >= 6.0.1`
 
 ## Architecture
 
@@ -16,7 +16,7 @@
 
 ```
 tiferet_flask/
-├── __init__.py          — Version (0.5.0) and public exports
+├── __init__.py          — Version (1.0.0) and public exports
 ├── blueprints/          — Stateless blueprint functions (build_flask_app, build_blueprint, get_routers, run)
 └── contexts/            — FlaskApiContext (OpenApiContext), FlaskRequestContext (alias)
 ```

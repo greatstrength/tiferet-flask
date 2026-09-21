@@ -159,7 +159,7 @@ When `swagger=True` is passed to `FlaskApp()`, Swagger UI is available at:
 
 ## Architecture
 
-Tiferet Flask v0.5.0 delegates all domain, interface, event, mapper, and repository concerns to `tiferet-openapi`. Only two packages remain under `tiferet_flask/`:
+Tiferet Flask v1.0.0 delegates all domain, interface, event, mapper, and repository concerns to `tiferet-openapi`. Only two packages remain under `tiferet_flask/`:
 
 - **`blueprints/`** — Stateless blueprint functions (`build_flask_app`, `build_blueprint`, `get_routers`, `run`) that consume `ApiRouter`/`ApiRoute` from tiferet-openapi, map them to Flask Blueprints, and optionally register a Swagger UI blueprint. Exported as `FlaskApp` alias.
 - **`contexts/`** — `FlaskApiContext` is a thin subclass of `OpenApiContext` that adds `create_swagger_blueprint()`. `FlaskRequestContext` is an alias for `OpenApiRequestContext`.
@@ -175,7 +175,7 @@ For domain-level documentation (domain objects, events, mappers, repositories), 
 
 ## Example
 
-See the [`example/`](example/) directory for a complete calculator Flask API demonstrating the v0.5.0 architecture with Swagger support.
+See the [`example/`](example/) directory for a complete calculator Flask API demonstrating the v1.0.0 architecture with Swagger support.
 
 ## License
 
