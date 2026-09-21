@@ -9,11 +9,11 @@ from unittest import mock
 # ** infra
 import pytest
 from flask import Blueprint, Flask
-from tiferet import use_tester
+from tiferet import TiferetAPIError, TiferetError, use_tester
 from tiferet.blueprints import core
 from tiferet.contexts.app import AppSession
 from tiferet.contexts.cache import CacheContext
-from tiferet_openapi import ApiRoute, ApiRouter, create_openapi_request_context
+from tiferet_openapi import ApiErrorResponse, ApiRoute, ApiRouter, create_openapi_request_context
 
 # ** app
 from .. import flask as flask_blueprint_module
@@ -25,6 +25,7 @@ from ..flask import (
     get_routers,
     get_routers_handler,
     get_status_code_handler,
+    handle_tiferet_api_error,
 )
 from ...assets.core import (
     APP_FLAG,
@@ -32,6 +33,7 @@ from ...assets.core import (
     GET_ROUTERS_EVT_SERVICE_ID,
     GET_STATUS_CODE_EVT_SERVICE_ID,
 )
+from ...assets.cors import CORS_ORIGINS_CONST_KEY
 from ...assets.swagger import (
     SWAGGER_BLUEPRINT_NAME,
     SWAGGER_URL_PREFIX,
@@ -120,6 +122,25 @@ def cache() -> CacheContext:
     '''
 
     return core.build_cache()
+
+# ** fixture: sample_api_error
+@pytest.fixture
+def sample_api_error() -> TiferetAPIError:
+    '''
+    A TiferetAPIError already resolved with a status code, matching what the
+    OpenAPI session handle_error path attaches.
+
+    :return: A TiferetAPIError with status_code 400.
+    :rtype: TiferetAPIError
+    '''
+
+    api_error = TiferetAPIError(
+        'DIVISION_BY_ZERO',
+        message='Cannot divide by zero.',
+        name='DIVISION_BY_ZERO',
+    )
+    api_error.status_code = 400
+    return api_error
 
 # *** tests
 
@@ -426,6 +447,7 @@ class TestBuildFlaskApp:
         # Patch session assembly collaborators.
         mock_cache = mock.Mock()
         mock_app_session = mock.Mock()
+        mock_app_session.constants = {}
         mock_context = mock.Mock(spec=FlaskApiContext)
         mock_context.get_routers.return_value = [sample_router]
 
@@ -469,6 +491,7 @@ class TestBuildFlaskApp:
         # Patch session assembly collaborators.
         mock_cache = mock.Mock()
         mock_app_session = mock.Mock()
+        mock_app_session.constants = {}
         mock_context = mock.Mock(spec=FlaskApiContext)
         mock_context.get_routers.return_value = [sample_router]
         swagger_bp = Blueprint(
@@ -515,6 +538,7 @@ class TestBuildFlaskApp:
         # Patch session assembly collaborators.
         mock_cache = mock.Mock()
         mock_app_session = mock.Mock()
+        mock_app_session.constants = {}
         mock_context = mock.Mock(spec=FlaskApiContext)
         mock_context.get_routers.return_value = [sample_router]
 
@@ -554,6 +578,7 @@ class TestBuildFlaskApp:
         # Patch session assembly collaborators.
         mock_cache = mock.Mock()
         mock_app_session = mock.Mock()
+        mock_app_session.constants = {}
         mock_context = mock.Mock(spec=FlaskApiContext)
         mock_context.get_routers.return_value = [sample_router]
         swagger_bp = Blueprint(
@@ -614,6 +639,7 @@ class TestBuildFlaskApp:
         )
         mock_cache = mock.Mock()
         mock_app_session = mock.Mock()
+        mock_app_session.constants = {}
         mock_context = mock.Mock(spec=FlaskApiContext)
         mock_context.get_routers.return_value = [collision_router]
         swagger_bp = Blueprint(
@@ -641,3 +667,232 @@ class TestBuildFlaskApp:
         mock_context.create_swagger_blueprint.assert_called_once_with()
         assert result.blueprints[SWAGGER_BLUEPRINT_NAME].url_prefix == '/already-taken'
         assert result.blueprints[SWAGGER_BLUEPRINT_NAME] is not swagger_bp
+
+    # * test: registers_exactly_one_tiferet_api_error_handler
+    def test_build_flask_app_registers_tiferet_api_error_handler(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ):
+        '''
+        Test build_flask_app registers exactly one TiferetAPIError handler.
+
+        :param session: A fresh generic test session.
+        :type session: TestSessionContext
+        :param mock_view_func: The mock view function.
+        :type mock_view_func: mock.Mock
+        '''
+
+        # Patch session assembly collaborators with no routers.
+        mock_cache = mock.Mock()
+        mock_app_session = mock.Mock()
+        mock_app_session.constants = {}
+        mock_context = mock.Mock(spec=FlaskApiContext)
+        mock_context.get_routers.return_value = []
+
+        with mock.patch(
+            'tiferet_flask.blueprints.flask.core.build_cache',
+            return_value=mock_cache,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.core.get_app_session',
+            return_value=mock_app_session,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.build_flask_session_context',
+            return_value=mock_context,
+        ):
+
+            # Build the Flask application through the tester session.
+            result = session.given(
+                interface_id='test_interface',
+                view_func=mock_view_func,
+            ).run(target=build_flask_app)
+
+        # Assert exactly one TiferetAPIError handler is registered.
+        handlers = result.error_handler_spec[None][None]
+        assert list(handlers.keys()) == [TiferetAPIError]
+        assert handlers[TiferetAPIError] is handle_tiferet_api_error
+        assert TiferetError not in handlers
+        assert Exception not in handlers
+
+    # * test: forwards_parsed_cors_options
+    def test_build_flask_app_forwards_parsed_cors_options(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ):
+        '''
+        Test CORS receives origins parsed from app session constants.
+
+        :param session: A fresh generic test session.
+        :type session: TestSessionContext
+        :param mock_view_func: The mock view function.
+        :type mock_view_func: mock.Mock
+        '''
+
+        # Patch session assembly collaborators and CORS.
+        mock_cache = mock.Mock()
+        mock_app_session = mock.Mock()
+        mock_app_session.constants = {
+            CORS_ORIGINS_CONST_KEY: 'https://app.example.com',
+        }
+        mock_context = mock.Mock(spec=FlaskApiContext)
+        mock_context.get_routers.return_value = []
+
+        with mock.patch(
+            'tiferet_flask.blueprints.flask.core.build_cache',
+            return_value=mock_cache,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.core.get_app_session',
+            return_value=mock_app_session,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.build_flask_session_context',
+            return_value=mock_context,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.CORS',
+        ) as mock_cors:
+
+            # Build the Flask application from the given session.
+            result = session.given(
+                interface_id='test_interface',
+                view_func=mock_view_func,
+            ).run(target=build_flask_app)
+
+        # Assert CORS is applied with the parsed origins kwarg.
+        mock_cors.assert_called_once_with(
+            result,
+            origins=['https://app.example.com'],
+        )
+
+    # * test: empty_constants_call_cors_with_no_kwargs
+    def test_build_flask_app_empty_constants_calls_cors_with_no_kwargs(
+            self,
+            session,
+            mock_view_func: mock.Mock,
+        ):
+        '''
+        Test empty session constants still apply CORS with no extra kwargs.
+
+        :param session: A fresh generic test session.
+        :type session: TestSessionContext
+        :param mock_view_func: The mock view function.
+        :type mock_view_func: mock.Mock
+        '''
+
+        # Patch session assembly collaborators and CORS.
+        mock_cache = mock.Mock()
+        mock_app_session = mock.Mock()
+        mock_app_session.constants = {}
+        mock_context = mock.Mock(spec=FlaskApiContext)
+        mock_context.get_routers.return_value = []
+
+        with mock.patch(
+            'tiferet_flask.blueprints.flask.core.build_cache',
+            return_value=mock_cache,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.core.get_app_session',
+            return_value=mock_app_session,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.build_flask_session_context',
+            return_value=mock_context,
+        ), mock.patch(
+            'tiferet_flask.blueprints.flask.CORS',
+        ) as mock_cors:
+
+            # Build the Flask application from the given session.
+            result = session.given(
+                interface_id='test_interface',
+                view_func=mock_view_func,
+            ).run(target=build_flask_app)
+
+        # Assert CORS is applied with the Flask app as the only argument.
+        mock_cors.assert_called_once_with(result)
+
+# ** tester: test_handle_tiferet_api_error
+@use_tester(
+    type='generic',
+    target_cls=handle_tiferet_api_error,
+)
+class TestHandleTiferetApiError:
+    '''
+    Bound generic tester for handle_tiferet_api_error.
+    '''
+
+    # * test: maps_error_and_message_with_status_code
+    def test_handle_tiferet_api_error_maps_body_and_status(
+            self,
+            session,
+            sample_api_error: TiferetAPIError,
+        ):
+        '''
+        Test the handler maps name, message, and status code onto JSON.
+
+        :param session: A fresh generic test session.
+        :type session: TestSessionContext
+        :param sample_api_error: A resolved TiferetAPIError with status_code 400.
+        :type sample_api_error: TiferetAPIError
+        '''
+
+        # Map the resolved API error inside a Flask request context.
+        with Flask(__name__).test_request_context():
+            response, status_code = session.given(
+                api_error=sample_api_error,
+            ).run(target=handle_tiferet_api_error)
+
+        # Assert the JSON body, schema, and HTTP status.
+        body = response.get_json()
+        assert body == {
+            'error': 'DIVISION_BY_ZERO',
+            'message': 'Cannot divide by zero.',
+        }
+        ApiErrorResponse(**body)
+        assert status_code == 400
+
+    # * test: defaults_status_code_when_missing
+    def test_handle_tiferet_api_error_defaults_status_code(self, session):
+        '''
+        Test the handler defaults HTTP 500 when status_code is missing.
+
+        :param session: A fresh generic test session.
+        :type session: TestSessionContext
+        '''
+
+        # Map an unresolved API error with no status_code attribute.
+        api_error = TiferetAPIError(
+            'UNRESOLVED_ERROR',
+            message='Something broke.',
+        )
+        with Flask(__name__).test_request_context():
+            response, status_code = session.given(
+                api_error=api_error,
+            ).run(target=handle_tiferet_api_error)
+
+        # Assert the JSON body and the default HTTP 500 status.
+        assert response.get_json() == {
+            'error': 'UNRESOLVED_ERROR',
+            'message': 'Something broke.',
+        }
+        assert status_code == 500
+
+    # * test: defaults_empty_message
+    def test_handle_tiferet_api_error_defaults_empty_message(self, session):
+        '''
+        Test the handler defaults an empty message when none is provided.
+
+        :param session: A fresh generic test session.
+        :type session: TestSessionContext
+        '''
+
+        # Map an API error with no message and an attached status code.
+        api_error = TiferetAPIError('NO_MESSAGE_ERROR')
+        api_error.status_code = 404
+        with Flask(__name__).test_request_context():
+            response, status_code = session.given(
+                api_error=api_error,
+            ).run(target=handle_tiferet_api_error)
+
+        # Assert the JSON body uses an empty message and keeps HTTP 404.
+        assert response.get_json() == {
+            'error': 'NO_MESSAGE_ERROR',
+            'message': '',
+        }
+        assert status_code == 404
